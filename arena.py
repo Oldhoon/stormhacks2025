@@ -2,10 +2,9 @@ import pygame
 import sys
 from pygame.locals import *
 
-FPS = pygame.time.Clock()
-
-FPS.tick(60)
-
+FPS = 120
+frames = FPS/12
+clock = pygame.time.Clock()
 
 pygame.init()
 
@@ -42,9 +41,6 @@ while True:
     pygame.display.update()
     pygame.display.flip()
     clock.tick(FPS)
-    
-pygame.quit()
-sys.exit()
 
 
 
