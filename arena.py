@@ -9,6 +9,7 @@ FPS.tick(60)
 
 pygame.init()
 
+#test
 
 DISPLAYSURF = pygame.display.set_mode((300,300))
 # Game loop begins
