@@ -1,10 +1,8 @@
-# game/api.py
 import os
 import re
 import html
 import requests
 
-# Optional: if you install bs4, we'll use it for nicer HTML->text
 try:
     from bs4 import BeautifulSoup
     _HAS_BS4 = True
@@ -22,7 +20,6 @@ def _strip_html(s: str) -> str:
     return html.unescape(_TAG_RE.sub("", s))
 
 def _norm_tags(tags):
-    # handle ["dp","graph"] or [{"name":"Dynamic Programming"}, ...]
     out = []
     for t in tags or []:
         if isinstance(t, dict):
@@ -42,39 +39,11 @@ class LCClient:
         r.raise_for_status()
         return r.json()
 
-    # --- your original raw endpoints (keep these) ---
     def get_daily(self):
         return self._get("/daily")
 
     def get_problem(self, slug_or_id):
         return self._get(f"/problem/{slug_or_id}")
-
-    def get_user(self, username):
-        return self._get(f"/user/{username}")
-
-    # --- parsed/normalized helpers (new) ---
-    def daily_meta(self):
-        """Return a compact daily challenge object:
-        {date, id, slug, title, difficulty, tags, url, paidOnly}"""
-        raw = self.get_daily()
-        prob = (
-            raw.get("problem")
-            or raw.get("question")
-            or raw.get("data", {}).get("problem")
-            or raw.get("questionData")
-            or {}
-        )
-        slug = prob.get("titleSlug") or prob.get("slug") or ""
-        return {
-            "date": raw.get("date"),
-            "id": prob.get("frontendQuestionId") or prob.get("id"),
-            "slug": slug,
-            "title": prob.get("title") or prob.get("questionTitle"),
-            "difficulty": prob.get("difficulty"),
-            "tags": _norm_tags(prob.get("topicTags") or prob.get("tags")),
-            "url": f"https://leetcode.com/problems/{slug}/" if slug else None,
-            "paidOnly": bool(prob.get("paidOnly")),
-        }
 
     def problem_meta(self, slug_or_id):
         """Return compact problem metadata (with optional plain-text 'text' if present)."""
@@ -94,32 +63,3 @@ class LCClient:
         if content:
             meta["text"] = _strip_html(content)
         return meta
-
-    def user_stats(self, username):
-        """Return user totals in a stable shape: {username, solvedTotal, byDifficulty, recentSubmissions[]}"""
-        u = self.get_user(username)
-        by = u.get("byDifficulty") or {}
-        return {
-            "username": u.get("username") or username,
-            "solvedTotal": (
-                u.get("solvedTotal")
-                or u.get("submitStats", {}).get("acSubmissionNumTotal")
-                or sum(int(n.get("count", 0)) for n in u.get("submitStats", {}).get("acSubmissionNum", []))
-                or None
-            ),
-            "byDifficulty": {
-                "easy": u.get("easySolved") or by.get("easy", 0),
-                "medium": u.get("mediumSolved") or by.get("medium", 0),
-                "hard": u.get("hardSolved") or by.get("hard", 0),
-            },
-            "recentSubmissions": [
-                {
-                    "id": s.get("id") or s.get("submissionId") or "",
-                    "slug": s.get("slug") or s.get("titleSlug") or "",
-                    "status": s.get("status") or s.get("statusDisplay") or "",
-                    "language": s.get("lang") or s.get("language") or "",
-                    "submittedAt": s.get("timestamp") or s.get("time") or "",
-                }
-                for s in u.get("recentSubmissions", [])
-            ],
-        }
