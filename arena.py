@@ -15,7 +15,7 @@ class Arena:
         
         self.clock = pygame.time.Clock()
         self.fps = 60
-        self.frames = self.fps / 12
+        self.frames = self.fps / 10
         
         self.background = pygame.image.load(r"assets/cyberpunk-street-files/cyberpunk-street-files/Assets/Version 1/PNG/cyberpunk-street.png").convert()
         self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))

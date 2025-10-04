@@ -8,8 +8,8 @@ FW = 96
 FH = 84
 MAX_HP =100
 START_X = 0
-START_Y = 0 # top left corner for now #TODO
-SCALE = 3
+START_Y = 300# top left corner for now #TODO
+SCALE = 4
 COLOR = (0,0,0)
 
 animation_cooldown= 200
@@ -37,35 +37,44 @@ class Samurai:
         self.hurt_list = []
         self.idle_list = []
         self.run_list = []
-
+        # attack
         for i in range(animation_steps[0]):
             self.attack_list.append(spritesheet_attack.get_image(i, FW, FH, SCALE, COLOR))
-
-        for i in range(HURT_STEPS):
+        # hurt
+        for i in range(animation_steps[1]):
             self.hurt_list.append(spritesheet_hurt.get_image(i, FW, FH, SCALE, COLOR))
-
-        for i in range(IDLE_STEPS):
+        # idle
+        for i in range(animation_steps[2]):
             self.idle_list.append(spritesheet_idle.get_image(i, FW, FH, SCALE, COLOR))
-
-        for i in range(RUN_STEPS):
+        # run
+        for i in range(animation_steps[3]):
             self.run_list.append(spritesheet_run.get_image(i, FW,FH,SCALE,COLOR))
 
-        self.current_sheet= self.idle_sheet
-        # self.current_frames =
+        self.animations = {
+            "attack": self.attack_list,
+            "hurt": self.hurt_list,
+            "idle": self.idle_list,
+            "run": self.run_list
+        }
+
+        self.animation_type = "idle"
         self.frame_index = 0
         self.position = (START_X,START_Y)
 
     def update(self):
         """Update samurai state"""
-        self.frame_index = (self.frame_index + 1) % 7
+        self.frame_index = (self.frame_index + 1) % (len(self.animations[self.animation_type]) - 1)
         pass
 
     def draw(self, screen):
         """Draw samurai on screen"""
-        screen.blit(self.attack_list[self.frame_index], (0,0))
+        animation_list = self.animations[self.animation_type]
+        screen.blit(animation_list[self.frame_index], (START_X,START_Y))
 
     def set_animation(self, animation_type):
         """Change animation type"""
-        # if animation_type in self.animations:
-        #     self.current_frames = self.animations[animation_type]
-        #     self.frame_index=0
+        if animation_type in self.animations:
+            self.animation_type = self.animations[animation_type]
+            self.frame_index=0
+
+
