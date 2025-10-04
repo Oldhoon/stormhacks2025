@@ -1,5 +1,4 @@
-# game/main.py
-import pygame, threading, queue, json
+import pygame, threading, queue
 from api import LCClient
 
 WIDTH, HEIGHT = 900, 600
@@ -8,29 +7,30 @@ FG = (230, 230, 235)
 MUTED = (170, 170, 180)
 ACCENT = (120, 180, 255)
 
-def shorten(obj, n=300):
-    s = json.dumps(obj, ensure_ascii=False)
-    return s[:n] + ("…" if len(s) > n else "")
-
-def try_get_title(payload):
-    # Best-effort extraction across different shapes
-    for key in ("title", "questionTitle", "question"):
-        cur = payload.get(key) if isinstance(payload, dict) else None
-        if isinstance(cur, dict) and "title" in cur:
-            return cur.get("title")
-        if isinstance(cur, str):
-            return cur
-    # sometimes payload has 'data' wrapper
-    if isinstance(payload, dict) and "data" in payload and isinstance(payload["data"], dict):
-        return try_get_title(payload["data"])
-    return None
-
 def worker(fn, args, outq):
     try:
         result = fn(*args)
         outq.put(("ok", result))
     except Exception as e:
         outq.put(("err", str(e)))
+
+def draw_wrapped(surface, text, font, color, x, y, max_w, line_h=None):
+    if not text: return y
+    words = text.split()
+    line = ""
+    lh = line_h or (font.get_height() + 2)
+    for w in words:
+        test = f"{line} {w}".strip()
+        if font.size(test)[0] <= max_w:
+            line = test
+        else:
+            surface.blit(font.render(line, True, color), (x, y))
+            y += lh
+            line = w
+    if line:
+        surface.blit(font.render(line, True, color), (x, y))
+        y += lh
+    return y
 
 def main():
     pygame.init()
@@ -41,18 +41,21 @@ def main():
     big  = pygame.font.SysFont(None, 36)
     mono = pygame.font.SysFont("consolas", 18)
 
-    api = LCClient()  # uses http://localhost:8000 by default
+    api = LCClient()  # http://localhost:8000 by default
     q = queue.Queue()
     loading = False
-    last_action = "Press D for Daily, P for Problem, U for User"
-    last_payload = None
+    last_action = "Controls:  [P] Problem   [Esc] Quit"
+    last_meta = None
     last_error = None
-    sample_slugs = ["two-sum", "add-two-numbers", "longest-substring-without-repeating-characters"]
+    sample_slugs = [
+        "two-sum",
+        "add-two-numbers",
+        "longest-substring-without-repeating-characters",
+    ]
     slug_idx = 0
-    username = "lee215"  # change to your LC username if you want
 
     def fetch_async(callable_, *args):
-        nonlocal loading, last_error, last_action
+        nonlocal loading, last_error
         loading = True
         last_error = None
         threading.Thread(target=worker, args=(callable_, args, q), daemon=True).start()
@@ -65,38 +68,34 @@ def main():
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
                     running = False
-                elif e.key == pygame.K_d:
-                    last_action = "Fetching /daily …"
-                    fetch_async(api.get_daily)
                 elif e.key == pygame.K_p:
                     slug = sample_slugs[slug_idx % len(sample_slugs)]
                     slug_idx += 1
                     last_action = f"Fetching /problem/{slug} …"
-                    fetch_async(api.get_problem, slug)
-                elif e.key == pygame.K_u:
-                    last_action = f"Fetching /user/{username} …"
-                    fetch_async(api.get_user, username)
+                    # use parsed helper
+                    fetch_async(api.problem_meta, slug)
 
-        # collect results without blocking render
+        # collect results (non-blocking)
         try:
             status, payload_or_err = q.get_nowait()
             loading = False
             if status == "ok":
-                last_payload = payload_or_err
+                last_meta = payload_or_err  # already parsed
                 last_error = None
-                title = try_get_title(last_payload) or "(no title field)"
-                last_action = f"Loaded ✓  {title}"
+                title = last_meta.get("title") or "(no title)"
+                diff = last_meta.get("difficulty") or "?"
+                last_action = f"Loaded ✓  {title} [{diff}]"
             else:
                 last_error = payload_or_err
-                last_payload = None
+                last_meta = None
                 last_action = "Error ✗  see message below"
         except queue.Empty:
             pass
 
-        # draw
+        # draw UI
         screen.fill(BG)
         screen.blit(big.render("Pygame + LeetCode API", True, FG), (24, 20))
-        screen.blit(font.render("Controls: [D] Daily   [P] Problem   [U] User   [Esc] Quit", True, MUTED), (24, 66))
+        screen.blit(font.render("Controls: [P] Problem   [Esc] Quit", True, MUTED), (24, 66))
         screen.blit(font.render(f"Status: {last_action}", True, ACCENT if "Loaded" in last_action else FG), (24, 100))
 
         y = 140
@@ -105,16 +104,23 @@ def main():
             y += 30
 
         if last_error:
-            for line in [last_error[i:i+90] for i in range(0, len(last_error), 90)]:
-                screen.blit(font.render(line, True, (255, 120, 120)), (24, y))
-                y += 24
+            y = draw_wrapped(screen, str(last_error), font, (255,120,120), 24, y, WIDTH-48)
 
-        if last_payload:
-            # show a compact JSON preview
-            preview = shorten(last_payload, 1200)
-            for line in [preview[i:i+110] for i in range(0, len(preview), 110)]:
-                screen.blit(mono.render(line, True, FG), (24, y))
-                y += 20
+        if last_meta:
+            title = last_meta.get("title") or ""
+            diff  = last_meta.get("difficulty") or ""
+            tags  = ", ".join(last_meta.get("tags", [])) or "-"
+            url   = last_meta.get("url") or ""
+
+            screen.blit(big.render(title, True, FG), (24, y)); y += 40
+            y = draw_wrapped(screen, f"Difficulty: {diff}", font, MUTED, 24, y, WIDTH-48)
+            y = draw_wrapped(screen, f"Tags: {tags}", font, MUTED, 24, y, WIDTH-48)
+            y = draw_wrapped(screen, f"URL: {url}", font, MUTED, 24, y, WIDTH-48)
+            y += 10
+
+            text = (last_meta.get("text") or "")[:2000]  # show first ~2k chars
+            if text:
+                y = draw_wrapped(screen, text, mono, FG, 24, y, WIDTH-48, line_h=mono.get_height()+2)
 
         pygame.display.flip()
         clock.tick(60)
