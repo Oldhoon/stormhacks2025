@@ -56,7 +56,49 @@ class Knight:
         self.image = frame
         self.rect = self.image.get_rect(midleft=self.position)
         self.can_move_left = True
+        self.hp = MAX_HP
+        self.dead_time = None
+        self.speed = MOVE_BY // 2
+        self.alive = True
 
+    def take_damage(self, amount):
+        if self.alive:
+            self.hp -= amount
+            if self.hp <= 0:
+                self.hp = 0
+                self.alive = False
+                self.dead()
+                self.dead_time = pygame.time.get_ticks()
+        self.position = (self.position[0] - 5, self.position[1])
+    
+    def revive(self):
+        self.hp = MAX_HP // 2
+        self.alive = True
+        self.idle()
+        
+    def ai_update(self, samurai):
+        if not self.alive:
+            if self.dead_time and pygame.time.get_ticks() - self.dead_time > 15000:
+                self.revive()
+            return
+        
+        samurai_x, samurai_y = samurai.position
+        knight_x, knight_y = self.position
+        
+        dist_x = samurai_x - knight_x
+        
+        if abs(dist_x) > 100:
+            if dist_x > 0:
+                self.position = (knight_x + self.speed, knight_y)
+            else:
+                self.position = (knight_x - self.speed, knight_y)
+            self.set_animation("walk")
+        else:
+            self.attack()
+            
+        
+    def is_alive(self):
+        return self.alive
 
 
     def update(self):

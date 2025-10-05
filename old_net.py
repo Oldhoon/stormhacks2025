@@ -8,7 +8,7 @@ import socket
 import time
 
 class Arena:
-    def __init__(self, host='10.38.15.164', port=65469):
+    def __init__(self, host='3.14.28.211', port=5555):
         pygame.init()
         self.host = host
         self.port = port

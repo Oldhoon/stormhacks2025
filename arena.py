@@ -56,6 +56,7 @@ class Arena:
         self.knight.apply_input(p2)
     
     def update(self):
+        self.knight.ai_update(self.samurai)
         self.knight.update()
         self.samurai.update()
 
