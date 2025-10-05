@@ -61,6 +61,8 @@ class Samurai:
         self.last_update = pg.time.get_ticks()
         self.image = self.idle_list[0]
         self.rect = self.image.get_rect(center=self.position)
+        self.can_move_right = True
+        self.can_move_left = True
 
     def update(self):
         """Update samurai state"""
@@ -91,13 +93,14 @@ class Samurai:
         self.set_animation("idle")
 
     def move_right(self):
-
-        self.set_animation("run")
-        self.position = (self.position[0] + MOVE_BY, self.position[1])
+        if self.can_move_right:
+            self.set_animation("run")
+            self.position = (self.position[0] + MOVE_BY, self.position[1])
 
     def move_left(self):
-        self.set_animation("run")
-        self.position = (self.position[0] - MOVE_BY, self.position[1])
+        if self.can_move_left:
+            self.set_animation("run")
+            self.position = (self.position[0] - MOVE_BY, self.position[1])
 
     def attack(self):
         self.set_animation("attack")

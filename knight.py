@@ -55,6 +55,7 @@ class Knight:
         frame = self.animations[self.animation_type][self.frame_index]
         self.image = frame
         self.rect = self.image.get_rect(midleft=self.position)
+        self.can_move_left = True
 
 
 
@@ -90,8 +91,9 @@ class Knight:
 
 
     def move_left(self):
-        self.set_animation("walk")
-        self.position = (self.position[0] - MOVE_BY, self.position[1])
+        if self.can_move_left:
+            self.set_animation("walk")
+            self.position = (self.position[0] - MOVE_BY, self.position[1])
 
     def attack(self):
         self.set_animation("attack")

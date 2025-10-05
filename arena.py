@@ -33,7 +33,6 @@ class Arena:
         self.knight = Knight()
         
         self.running = True
-        self.collide = False
     
     def handle_events(self):
         for event in pygame.event.get():
@@ -60,13 +59,15 @@ class Arena:
         self.knight.update()
         self.samurai.update()
 
+
+
     def check_collision(self):
         if self.knight.get_rect().colliderect(self.samurai.get_rect()):
-            self.collide = True
-
+            self.samurai.can_move_right=False
+            self.knight.can_move_left=False
         else:
-            self.collide = False
-
+            self.samurai.can_move_right=True
+            self.knight.can_move_left=True
     
     def draw(self):
         self.screen.blit(self.background, (0, 0))
