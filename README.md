@@ -15,7 +15,9 @@ Get speedier at Leetcode problems, and get practice in a roguelike experience.
 
 
 # Setup
+- Use Python3 as that is what the development team used!
 - (Optional) Create and activate a venv to isolate dependencies:
   - `python3 -m venv .venv`
   - `source .venv/bin/activate`
-- pip install -r requirements.txt
+- `pip install -r requirements.txt`
+- run `python arena.py` or `python3 arena.py` to launch the game
