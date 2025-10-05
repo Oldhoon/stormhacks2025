@@ -1,3 +1,5 @@
+from asyncio import timeout
+
 import pygame.time
 
 import spritesheet
@@ -88,3 +90,16 @@ class Samurai:
     def move_left(self):
         self.set_animation("run")
         self.position = (self.position[0] - MOVE_BY, self.position[1])
+
+    def attack(self):
+        self.set_animation("attack")
+        timeout(500)
+        self.set_animation("idle")
+
+    def apply_input(self, inp):
+        if inp.left:
+            self.move_left()
+        if inp.right:
+            self.move_right()
+        if inp.attack:
+            self.attack()

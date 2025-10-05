@@ -1,8 +1,16 @@
+from dataclasses import dataclass
+
 import pygame
 import sys
 from samurai import Samurai
 from pygame.locals import *
 from knight import Knight
+
+@dataclass
+class PlayerInput:
+    left = False
+    right = False
+    attack = False
 
 class Arena:
     def __init__(self):
@@ -31,6 +39,14 @@ class Arena:
                 self.running = False
                 pygame.quit()
                 sys.exit()
+
+        keys = pygame.key.get_pressed()
+        p1 = PlayerInput(
+            left=keys[pygame.K_LEFT],
+            right=keys[pygame.K_RIGHT],
+            attack=keys[pygame.K_SPACE]
+        )
+        self.samurai.apply_input(p1)
     
     def update(self):
         # self.knight.update()
@@ -52,5 +68,6 @@ class Arena:
             self.update()
             self.draw()
             self.clock.tick(self.fps)
+
 
 Arena().run()
