@@ -8,9 +8,9 @@ from knight import Knight
 
 @dataclass
 class PlayerInput:
-    left = False
-    right = False
-    attack = False
+    left:bool = False
+    right:bool = False
+    attack:bool = False
 
 class Arena:
     def __init__(self):

@@ -63,11 +63,18 @@ class Samurai:
         self.animation_type = "idle"
         self.frame_index = 0
         self.position = (START_X,START_Y)
+        self.last_update = pg.time.get_ticks()
 
     def update(self):
         """Update samurai state"""
-        self.frame_index = (self.frame_index + 1) % (len(self.animations[self.animation_type]) - 1)
-        pass
+        now = pg.time.get_ticks()
+        if not hasattr(self, "last_update"):
+            self.last_update = now
+        if now - self.last_update >= animation_cooldown:
+            self.last_update = now
+            frames = self.animations[self.animation_type]
+            if frames:
+                self.frame_index = (self.frame_index + 1) % len(frames)
 
     def draw(self, screen):
         """Draw samurai on screen"""
@@ -76,9 +83,10 @@ class Samurai:
 
     def set_animation(self, animation_type):
         """Change animation type"""
-        if animation_type in self.animations:
-            self.animation_type = self.animations[animation_type]
-            self.frame_index=0
+        if animation_type in self.animations and animation_type != self.animation_type:
+            self.animation_type = animation_type
+            self.frame_index = 0
+            self.last_update = pg.time.get_ticks()
 
     def idle(self):
         self.set_animation("idle")
@@ -93,8 +101,6 @@ class Samurai:
 
     def attack(self):
         self.set_animation("attack")
-        timeout(500)
-        self.set_animation("idle")
 
     def apply_input(self, inp):
         if inp.left:
