@@ -308,9 +308,13 @@ class SnippetBoard:
         self.right_rect = right_rect
         self.font, self.big, self.mono = font, big, mono
 
-        # Buttons
+        # Buttons (right panel)
         self.btn_rect = pygame.Rect(self.right_rect.left, self.right_rect.bottom - 44, 130, 34)  # CHECK
         self.reset_rect = pygame.Rect(self.btn_rect.right + 12, self.btn_rect.y, 130, 34)        # RESET
+
+        # Buttons on LEFT panel (bottom)
+        self.submit_rect = pygame.Rect(self.left_rect.x + 12, self.left_rect.bottom - 44, 120, 34)
+        self.reset_rect  = pygame.Rect(self.submit_rect.right + 12, self.submit_rect.y, 120, 34)
 
         self.palette = []
         self.assemble = []
@@ -399,12 +403,24 @@ class SnippetBoard:
         self.last_final = 0
         self.last_distractors = 0
 
+    def _materialize_from_palette(self):
+        parts = []
+        if self.template_preamble:
+            parts.append(self.template_preamble)
+        parts.extend(b.text for b in self.palette)
+        return "\n".join(parts) + "\n"
+
     def materialize_code(self):
         parts = []
         if self.template_preamble:
             parts.append(self.template_preamble)
         parts.extend(b.text for b in self.assemble)
         return "\n".join(parts) + "\n"
+
+    def reset_order(self):
+        """Restore the left palette to its original order."""
+        self.palette.sort(key=lambda b: self._initial_order.get(b.uid, 10**9))
+        self.status = "Snippets reset to original order."
 
     # --- NEW: reset helper ---
     def reset_to_left(self):
@@ -438,9 +454,20 @@ class SnippetBoard:
 
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             pos = e.pos
-            # RESET button
+            # LEFT panel buttons
             if self.reset_rect.collidepoint(pos):
-                self.reset_to_left()
+                self.reset_order()
+                return
+            if self.submit_rect.collidepoint(pos):
+                code = self._materialize_from_palette()
+                res = on_run(code) if on_run else None
+                if isinstance(res, dict):
+                    if res.get("ok"):
+                        self.status = f"Submitted ✓ Passed {res.get('passed', 0)}/{res.get('total', 0)}"
+                    else:
+                        self.status = f"Submitted ✗ {res.get('message') or 'Run failed'}"
+                else:
+                    self.status = "Submitted."
                 return
 
             # hit-test palette first, then assemble
@@ -558,6 +585,14 @@ class SnippetBoard:
         y_left = self._left_list_top
         for b in self.palette:
             y_left += b.draw(surf, self.left_rect.x + 12, y_left, self.left_rect.w - 24, self.mono, active=False)
+
+        # Buttons (bottom-left)
+        pygame.draw.rect(surf, ACCENT, self.submit_rect, border_radius=8)
+        surf.blit(self.big.render("SUBMIT", True, (10, 10, 15)), (self.submit_rect.x + 10, self.submit_rect.y + 4))
+
+        pygame.draw.rect(surf, (45, 45, 55), self.reset_rect, border_radius=8)
+        pygame.draw.rect(surf, ERR, self.reset_rect, 2, border_radius=8)
+        surf.blit(self.big.render("RESET", True, ERR), (self.reset_rect.x + 16, self.reset_rect.y + 4))
 
 # ---------- scoring helpers ----------
 def lcs_len(a, b):
