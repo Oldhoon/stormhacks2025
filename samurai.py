@@ -95,11 +95,14 @@ class Samurai:
         self.rect.center = self.position
 
     def take_damage(self):
-        if self.can_take_damage and not self.is_attacking:
+        if self.can_take_damage:
             self.hp -= DAMAGE_AMOUNT
+            print(f"Samurai takes {DAMAGE_AMOUNT} damage! HP: {self.hp}/{MAX_HP}")
             if self.hp < 0:
                 self.hp = 0
                 self.is_alive = False # Samurai is defeated
+                print("Samurai defeated!")
+            self.is_attacking = False
             self.set_animation("hurt")
             
     def draw(self, screen):

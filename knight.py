@@ -225,6 +225,7 @@ class Knight:
     def take_damage(self):
         if self.can_take_damage:
             self.hp -= DAMAGE_AMOUNT
+            print(f"Knight takes {DAMAGE_AMOUNT} damage! HP: {self.hp}/{MAX_HP}")
             
             self.position = (self.position[0] + KNOCKBACK, self.position[1])  # Knockback effect
             if self.hp <= 0:
@@ -234,6 +235,7 @@ class Knight:
                 self.attack_hit_applied = True
                 self.set_animation("dead")
                 self.dead_time = pygame.time.get_ticks()
+                print("Knight defeated!")
             else:
                 self.is_attacking = False
                 self.set_animation("hurt")
