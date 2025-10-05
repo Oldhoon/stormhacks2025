@@ -179,6 +179,7 @@
 # Arena().run()
 from dataclasses import dataclass
 import random
+from game.complexity_bank import random_question
 
 import pygame
 from pygame.locals import *
@@ -192,55 +193,6 @@ LEETCODE_TIME_LIMIT = 180  # seconds
 PLAYER_MAX_LIVES = 5
 REVIVE_WINDOW_MS = 3000
 REVIVE_MASH_INCREMENT = 8
-
-
-COMPLEXITY_QUESTION_BANK = [
-    {
-        "prompt": "What is the average-case time complexity of quicksort?",
-        "options": [
-            {"text": "O(n log n)", "correct": True},
-            {"text": "O(n^2)", "correct": False},
-            {"text": "O(n)", "correct": False},
-            {"text": "O(log n)", "correct": False},
-        ],
-    },
-    {
-        "prompt": "What is the lookup time complexity of a hash map (average case)?",
-        "options": [
-            {"text": "O(1)", "correct": True},
-            {"text": "O(log n)", "correct": False},
-            {"text": "O(n)", "correct": False},
-            {"text": "O(n log n)", "correct": False},
-        ],
-    },
-    {
-        "prompt": "What is the time complexity of inserting into a binary search tree (average case)?",
-        "options": [
-            {"text": "O(log n)", "correct": True},
-            {"text": "O(n)", "correct": False},
-            {"text": "O(1)", "correct": False},
-            {"text": "O(n log n)", "correct": False},
-        ],
-    },
-    {
-        "prompt": "What is the time complexity of merge sort?",
-        "options": [
-            {"text": "O(n log n)", "correct": True},
-            {"text": "O(n)", "correct": False},
-            {"text": "O(n^2)", "correct": False},
-            {"text": "O(log n)", "correct": False},
-        ],
-    },
-    {
-        "prompt": "What is the worst-case time complexity of accessing an element in an array?",
-        "options": [
-            {"text": "O(1)", "correct": True},
-            {"text": "O(n)", "correct": False},
-            {"text": "O(log n)", "correct": False},
-            {"text": "O(n log n)", "correct": False},
-        ],
-    },
-]
 
 @dataclass
 class PlayerInput:
@@ -502,9 +454,9 @@ class Arena:
         if self.pause_started_at is None:
             self.pause_started_at = now
         self.complexity_deadline = now + LEETCODE_TIME_LIMIT * 1000
-        self.complexity_question = random.choice(COMPLEXITY_QUESTION_BANK)
-        self.complexity_options = [dict(opt) for opt in self.complexity_question["options"]]
-        random.shuffle(self.complexity_options)
+        q = random_question(shuffle=True)                 
+        self.complexity_question = {"prompt": q["prompt"]}
+        self.complexity_options = q["options"]           
         self.complexity_option_rects = []
 
     def _resolve_complexity_answer(self, correct: bool):
@@ -838,7 +790,35 @@ class Arena:
         self._draw_scoreboard()
 
         panel_w = 980
-        panel_h = 380
+        pad_x = 32
+        pad_top = 24
+        pad_bottom = 32
+        header_gap = 28
+        prompt_line_gap = 4
+        option_spacing = 18
+        hint_gap = 20
+        question = self.complexity_question or {}
+        prompt = question.get("prompt", "")
+        prompt_lines = self._wrap_text(prompt, self.small_font, panel_w - pad_x * 2)
+        label_prefix = ["A", "B", "C", "D"]
+        btn_width = panel_w - pad_x * 2
+        option_layouts = []
+        for idx, option in enumerate(self.complexity_options):
+            label_text = f"{label_prefix[idx]}. {option['text']}"
+            label_lines = self._wrap_text(label_text, self.body_font, btn_width - 32)
+            option_height = len(label_lines) * (self.body_font.get_height() + 2) + 24
+            option_layouts.append({"lines": label_lines, "height": option_height, "option": option})
+        prompt_line_height = self.small_font.get_height() + prompt_line_gap
+        prompt_block_height = len(prompt_lines) * prompt_line_height
+        if prompt_lines:
+            prompt_block_height -= prompt_line_gap
+        prompt_start = pad_top + self.small_font.get_height() + header_gap
+        options_total_height = sum(layout["height"] for layout in option_layouts)
+        if option_layouts:
+            options_total_height += option_spacing * (len(option_layouts) - 1)
+        hint_relative_y = prompt_start + prompt_block_height + 12 + options_total_height + hint_gap
+        content_bottom = hint_relative_y + self.body_font.get_height()
+        panel_h = max(380, int(content_bottom + pad_bottom))
         panel_rect = pygame.Rect(
             (self.screen_width - panel_w) // 2,
             (self.screen_height - panel_h) // 2 - 40,
@@ -848,52 +828,44 @@ class Arena:
         panel = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
         panel.fill((18, 22, 38, 235))
         self.screen.blit(panel, panel_rect.topleft)
-
         header = self.small_font.render("Time Complexity Quiz", True, (240, 240, 245))
-        self.screen.blit(header, (panel_rect.x + 32, panel_rect.y + 24))
-
+        self.screen.blit(header, (panel_rect.x + pad_x, panel_rect.y + pad_top))
         if self.complexity_deadline is not None:
             remaining = max(0, self.complexity_deadline - pygame.time.get_ticks())
             seconds = max(0, int((remaining + 999) / 1000))
             timer_text = f"{seconds:02d}s"
             timer_color = (255, 120, 120) if seconds <= 10 else (210, 230, 255)
             timer_surf = self.small_font.render(timer_text, True, timer_color)
-            self.screen.blit(timer_surf, timer_surf.get_rect(topright=(panel_rect.right - 32, panel_rect.y + 24)))
-
-        question = self.complexity_question or {}
-        prompt = question.get("prompt", "")
-        prompt_lines = self._wrap_text(prompt, self.small_font, panel_w - 64)
-
-        y = panel_rect.y + 90
+            self.screen.blit(
+                timer_surf,
+                timer_surf.get_rect(topright=(panel_rect.right - pad_x, panel_rect.y + pad_top)),
+            )
+        y = panel_rect.y + prompt_start
         for line in prompt_lines:
             surf = self.small_font.render(line, True, (230, 230, 235))
-            self.screen.blit(surf, (panel_rect.x + 32, y))
-            y += self.small_font.get_height() + 4
-
+            self.screen.blit(surf, (panel_rect.x + pad_x, y))
+            y += self.small_font.get_height() + prompt_line_gap
+        if prompt_lines:
+            y -= prompt_line_gap
         y += 12
-        btn_width = panel_w - 64
-        spacing = 18
-        label_prefix = ["A", "B", "C", "D"]
         self.complexity_option_rects = []
-
-        options_y = y
-        for idx, option in enumerate(self.complexity_options):
-            label_text = f"{label_prefix[idx]}. {option['text']}"
-            label_lines = self._wrap_text(label_text, self.body_font, btn_width - 32)
-            option_height = len(label_lines) * (self.body_font.get_height() + 2) + 24
-            rect = pygame.Rect(panel_rect.x + 32, options_y, btn_width, option_height)
+        for idx, layout in enumerate(option_layouts):
+            rect = pygame.Rect(panel_rect.x + pad_x, y, btn_width, layout["height"])
             pygame.draw.rect(self.screen, (55, 60, 90), rect, border_radius=10)
             pygame.draw.rect(self.screen, (135, 170, 255), rect, width=2, border_radius=10)
             line_y = rect.y + 12
-            for line in label_lines:
+            for line in layout["lines"]:
                 surf = self.body_font.render(line, True, (240, 240, 250))
                 self.screen.blit(surf, (rect.x + 16, line_y))
                 line_y += self.body_font.get_height() + 2
-            self.complexity_option_rects.append((rect, option))
-            options_y = rect.bottom + spacing
-
+            self.complexity_option_rects.append((rect, layout["option"]))
+            y = rect.bottom
+            if idx < len(option_layouts) - 1:
+                y += option_spacing
         hint = self.body_font.render("Click an answer or press 1-4", True, (200, 200, 210))
-        self.screen.blit(hint, (panel_rect.x + 32, min(panel_rect.bottom - 40, options_y)))
+        hint_y = panel_rect.y + hint_relative_y
+        self.screen.blit(hint, (panel_rect.x + pad_x, hint_y))
+
     def _draw_revive_prompt(self):
         self.screen.blit(self.background, (0, 0))
         self.knight.draw(self.screen)
@@ -912,6 +884,7 @@ class Arena:
         self.screen.blit(option, option.get_rect(center=(self.screen_width // 2, self.screen_height // 2)))
         self.screen.blit(concede, concede.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 40)))
         self.screen.blit(note, note.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 90)))
+    
     def _draw_revive_mash(self):
         self.screen.blit(self.background, (0, 0))
         self.knight.draw(self.screen)
