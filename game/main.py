@@ -12,12 +12,6 @@ except ImportError:
     from api import LCClient
     from editor import Editor
 
-try:
-    from local_cli.judge_cli import run_local as local_run
-except Exception:
-    local_run = None  # optional local judge
-# ------------------------------------------------------------
-
 # ------- layout / colors -------
 WIDTH, HEIGHT = 900, 600
 BG = (18, 18, 20)
