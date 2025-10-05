@@ -10,6 +10,12 @@ try:
 except ImportError:
     from api import LCClient
 
+# optional local judge (safe if missing)
+try:
+    from local_cli.judge_cli import run_local as local_run
+except Exception:
+    local_run = None  # no local judge available
+
 # ------- layout / colors -------
 WIDTH, HEIGHT = 900, 600
 BG = (18, 18, 20)
@@ -89,26 +95,29 @@ class _Block:
         return h + 6
 
 class SnippetBoard:
-    """Left panel = palette (ordered lines). Dragging from palette removes it there.
-       Drop into the right panel to insert; dropping elsewhere cancels and returns it."""
+    """Drag between left (palette) and right (assemble). RESET moves everything right→left."""
     def __init__(self, left_rect: pygame.Rect, right_rect: pygame.Rect, font, big, mono):
         self.left_rect = left_rect
         self.right_rect = right_rect
         self.font, self.big, self.mono = font, big, mono
-        self.btn_rect = pygame.Rect(self.right_rect.left, self.right_rect.bottom - 44, 130, 34)
+
+        # Buttons
+        self.btn_rect = pygame.Rect(self.right_rect.left, self.right_rect.bottom - 44, 130, 34)  # CHECK
+        self.reset_rect = pygame.Rect(self.btn_rect.right + 12, self.btn_rect.y, 130, 34)        # RESET
 
         self.palette = []
         self.assemble = []
         self.title = "Snippet Puzzle"
         self.template_preamble = ""
         self.entrypoint = ""
-        self.status = "Drag lines to the right. Press CHECK."
+        self.status = "Drag lines between panels. Press CHECK."
 
         # drag state
         self._drag = None
-        self._insert_idx = None
         self._drag_from = None              # 'palette' or 'assemble'
         self._drag_from_index = None        # original index in its source list
+        self._insert_idx = None             # target insert position
+        self._insert_target = None          # 'left' or 'right'
 
         # truth / scoring
         self.truth_ids = []
@@ -120,7 +129,7 @@ class SnippetBoard:
         self.round_ms = 120_000
         self.start_ticks = pygame.time.get_ticks()
 
-        # reveal score only after a successful submission
+        # reveal score only after a submission
         self.show_score = False
         self.last_build = 0.0
         self.last_run = 0.0
@@ -128,15 +137,24 @@ class SnippetBoard:
         self.last_tbon = 0.0
         self.last_distractors = 0
 
+        # layout helpers for consistent insert math
+        self._left_list_top = self.left_rect.y + 50
+        self._right_list_top = self.right_rect.y + 56
+        self._row_h = 36  # row height used for insert-position math
+
+        # original order map for proper RESET behavior
+        self._initial_order = {}
+
     def load_puzzle(self, puzzle: dict | None):
         self.palette, self.assemble = [], []
-        self.status = "Drag lines to the right. Press CHECK."
+        self.status = "Drag lines between panels. Press CHECK."
         if not puzzle:
             self.title = "No puzzle available for this problem"
             self.template_preamble = ""
             self.entrypoint = ""
             self.truth_ids = []
             self.distractor_ids = set()
+            self._initial_order = {}
         else:
             self.title = puzzle.get("title", "Snippet Puzzle")
             self.template_preamble = puzzle.get("template_preamble", "")
@@ -147,6 +165,8 @@ class SnippetBoard:
             self.palette = blocks + distract
             self.truth_ids = [b.uid for b in blocks]
             self.distractor_ids = {d.uid for d in distract}
+            # remember original left-side order for RESET
+            self._initial_order = {b.uid: i for i, b in enumerate(self.palette)}
 
         # reset scoring/timing & hide score
         self.attempts = self.err_runs = 0
@@ -164,9 +184,43 @@ class SnippetBoard:
         parts.extend(b.text for b in self.assemble)
         return "\n".join(parts) + "\n"
 
+    # --- NEW: reset helper ---
+    def reset_to_left(self):
+        """Move everything from right to left and restore original left order."""
+        all_blocks = self.palette + self.assemble
+        # sort by original order; unknown ids go to the end
+        all_blocks.sort(key=lambda b: self._initial_order.get(b.uid, 10**9))
+        self.palette = all_blocks
+        self.assemble = []
+        # clear drag/insert hints
+        self._drag = None
+        self._insert_idx = None
+        self._insert_target = None
+        self._drag_from = None
+        self._drag_from_index = None
+        # do not change attempts/penalties; just update UI
+        self.show_score = False
+        self.status = "Reset: moved all snippets back to the left."
+
+    def _clamp_idx(self, idx: int, side: str) -> int:
+        if side == "left":
+            return max(0, min(len(self.palette), idx))
+        else:
+            return max(0, min(len(self.assemble), idx))
+
     def handle_event(self, e, on_run=None):
+        # quick keyboard reset (optional)
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_r:
+            self.reset_to_left()
+            return
+
         if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             pos = e.pos
+            # RESET button
+            if self.reset_rect.collidepoint(pos):
+                self.reset_to_left()
+                return
+
             # hit-test palette first, then assemble
             for src_name, lst in (("palette", self.palette), ("assemble", self.assemble)):
                 for i, b in enumerate(lst):
@@ -176,9 +230,12 @@ class SnippetBoard:
                         b.offset = (pos[0] - b.rect.x, pos[1] - b.rect.y)
                         self._drag_from = src_name
                         self._drag_from_index = i
-                        # ONE-WAY MOVE: remove immediately from its source list
+                        # remove immediately from its source list (we'll place it on drop)
                         lst.pop(i)
+                        self._insert_idx = None
+                        self._insert_target = None
                         return
+
             # CHECK button
             if self.btn_rect.collidepoint(pos):
                 code = self.materialize_code()
@@ -192,46 +249,50 @@ class SnippetBoard:
                 else:
                     res = on_run(code) if on_run else None
                     self.attempts += 1
+
+                    # compute scoring in all cases (even if no judge)
                     if isinstance(res, dict):
                         if not res.get("ok"):
                             self.err_runs += 1
                             self.status = res.get("message") or "Run failed."
-                            self.show_score = False  # don't reveal on failed runs
-                        else:
-                            self.tests_passed = res.get("passed", 0)
-                            self.tests_total = res.get("total", 0)
 
-                            # compute & cache score ONLY NOW (after a real run)
-                            player_ids = [b.uid for b in self.assemble]
-                            self.last_distractors = sum(1 for b in self.assemble if b.uid in self.distractor_ids)
-                            self.last_build = build_score(player_ids, self.truth_ids, self.last_distractors)
-                            self.last_run = run_score(self.tests_passed, self.tests_total)
-                            elapsed = pygame.time.get_ticks() - self.start_ticks
-                            self.last_tbon = time_bonus(elapsed, self.round_ms)
-                            self.last_final = compute_final(
-                                self.last_build, self.last_run, self.last_tbon,
-                                self.attempts, 0, self.err_runs, self.last_distractors
-                            )
-                            self.show_score = True
-
-                            if self.tests_total and self.tests_passed == self.tests_total:
-                                self.status = "All tests passed! 🎉"
-                            else:
-                                self.status = f"Passed {self.tests_passed}/{self.tests_total} tests"
+                        self.tests_passed = res.get("passed", 0)
+                        self.tests_total = res.get("total", 0)
                     else:
-                        self.status = "Submitted."
-                        self.show_score = False
+                        self.tests_passed = 0
+                        self.tests_total = 0
+                        if res is None:
+                            self.status = "Score updated (no judge)."
+
+                    player_ids = [b.uid for b in self.assemble]
+                    self.last_distractors = sum(1 for b in self.assemble if b.uid in self.distractor_ids)
+                    self.last_build = build_score(player_ids, self.truth_ids, self.last_distractors)
+                    self.last_run = run_score(self.tests_passed, self.tests_total)
+                    elapsed = pygame.time.get_ticks() - self.start_ticks
+                    self.last_tbon = time_bonus(elapsed, self.round_ms)
+                    self.last_final = compute_final(
+                        self.last_build, self.last_run, self.last_tbon,
+                        self.attempts, 0, self.err_runs, self.last_distractors
+                    )
+                    self.show_score = True
+
+                    if isinstance(res, dict) and res.get("ok"):
+                        if self.tests_total and self.tests_passed == self.tests_total:
+                            self.status = "All tests passed! 🎉"
+                        else:
+                            self.status = f"Passed {self.tests_passed}/{self.tests_total} tests"
                 return
 
         if e.type == pygame.MOUSEBUTTONUP and e.button == 1 and self._drag:
-            pos = e.pos
-            # drop into assemble
-            if self.right_rect.collidepoint(pos):
-                y = pos[1] - (self.right_rect.y + 56)
-                idx = max(0, min(len(self.assemble), y // 36))
-                self.assemble.insert(int(idx), self._drag)
+            # decide final drop
+            if self._insert_target == "right":
+                idx = self._clamp_idx(self._insert_idx or 0, "right")
+                self.assemble.insert(idx, self._drag)
+            elif self._insert_target == "left":
+                idx = self._clamp_idx(self._insert_idx or 0, "left")
+                self.palette.insert(idx, self._drag)
             else:
-                # cancel → put back where it came from
+                # cancel → put back where it came from, at original index
                 if self._drag_from == "palette":
                     idx = self._drag_from_index if self._drag_from_index is not None else len(self.palette)
                     self.palette.insert(idx, self._drag)
@@ -243,6 +304,7 @@ class SnippetBoard:
             self._drag.dragging = False
             self._drag = None
             self._insert_idx = None
+            self._insert_target = None
             self._drag_from = None
             self._drag_from_index = None
             return
@@ -250,10 +312,18 @@ class SnippetBoard:
         if e.type == pygame.MOUSEMOTION and self._drag:
             mx, my = e.pos
             self._drag.rect.topleft = (mx - self._drag.offset[0], my - self._drag.offset[1])
+
+            # compute tentative insert target + index based on cursor
             if self.right_rect.collidepoint(e.pos):
-                y = my - (self.right_rect.y + 56)
-                self._insert_idx = max(0, min(len(self.assemble), y // 36))
+                y = my - self._right_list_top
+                self._insert_target = "right"
+                self._insert_idx = self._clamp_idx(y // self._row_h, "right")
+            elif self.left_rect.collidepoint(e.pos):
+                y = my - self._left_list_top
+                self._insert_target = "left"
+                self._insert_idx = self._clamp_idx(y // self._row_h, "left")
             else:
+                self._insert_target = None
                 self._insert_idx = None
 
     def draw(self, surf):
@@ -266,25 +336,31 @@ class SnippetBoard:
         surf.blit(self.font.render(self.status, True, MUTED), (self.right_rect.x + 12, self.right_rect.y + 36))
 
         # palette (ordered lines)
-        y = self.left_rect.y + 50
+        y_left = self._left_list_top
         for b in self.palette:
-            y += b.draw(surf, self.left_rect.x + 12, y, self.left_rect.w - 24, self.mono, active=False)
+            y_left += b.draw(surf, self.left_rect.x + 12, y_left, self.left_rect.w - 24, self.mono, active=False)
 
         # assemble
-        y2 = self.right_rect.y + 56
-        if self._insert_idx is not None:
-            y_line = y2 + self._insert_idx * 36
-            pygame.draw.line(surf, ACCENT, (self.right_rect.x + 10, y_line), (self.right_rect.right - 10, y_line), 2)
+        y_right = self._right_list_top
         for b in self.assemble:
-            y2 += b.draw(surf, self.right_rect.x + 12, y2, self.right_rect.w - 24, self.mono, active=False)
+            y_right += b.draw(surf, self.right_rect.x + 12, y_right, self.right_rect.w - 24, self.mono, active=False)
 
-        # dragging on top
-        if self._drag:
-            self._drag.draw(surf, self._drag.rect.x, self._drag.rect.y, self._drag.rect.w, self.mono, active=True)
+        # insertion guide line
+        if self._insert_target == "right" and self._insert_idx is not None:
+            y_line = self._right_list_top + self._insert_idx * self._row_h
+            pygame.draw.line(surf, ACCENT, (self.right_rect.x + 10, y_line), (self.right_rect.right - 10, y_line), 2)
+        elif self._insert_target == "left" and self._insert_idx is not None:
+            y_line = self._left_list_top + self._insert_idx * self._row_h
+            pygame.draw.line(surf, ACCENT, (self.left_rect.x + 10, y_line), (self.left_rect.right - 10, y_line), 2)
 
-        # check button
+        # CHECK button
         pygame.draw.rect(surf, ACCENT, self.btn_rect, border_radius=8)
         surf.blit(self.big.render("CHECK", True, (10, 10, 15)), (self.btn_rect.x + 14, self.btn_rect.y + 4))
+
+        # RESET button
+        pygame.draw.rect(surf, (45, 45, 55), self.reset_rect, border_radius=8)
+        pygame.draw.rect(surf, ERR, self.reset_rect, 2, border_radius=8)
+        surf.blit(self.big.render("RESET", True, ERR), (self.reset_rect.x + 14, self.reset_rect.y + 4))
 
         # --- score HUD (only after submission) ---
         if self.show_score:
@@ -305,8 +381,8 @@ class SnippetBoard:
             surf.blit(self.big.render(f"SCORE: {self.last_final}", True, FG), (hud_x, hud_y + 70))
         else:
             # subtle hint only; no percentages
-            hint = "Press CHECK to see score"
-            surf.blit(self.font.render(hint, True, MUTED), (self.right_rect.right - 240, self.right_rect.y + 8))
+            hint = "Press CHECK to see score  •  Press R or RESET to move all back"
+            surf.blit(self.font.render(hint, True, MUTED), (self.right_rect.right - 360, self.right_rect.y + 8))
 
 # ---------- scoring helpers ----------
 def lcs_len(a, b):
@@ -333,7 +409,7 @@ def build_score(player_ids, truth_ids, distractor_ids_in_assemble=0):
     return max(0.0, min(1.0, base - penalty))
 
 def run_score(tests_passed, total_tests):
-    return 0.0 if total_tests == 0 else min(1.0, max(0.0, tests_passed / total_tests))
+    return 0.0 if total_tests == 0 else min(1.0, max(0.0), tests_passed / total_tests)
 
 def time_bonus(elapsed_ms, round_ms):
     return max(0.0, 1.0 - (elapsed_ms / round_ms)) if round_ms > 0 else 0.0
@@ -354,8 +430,8 @@ def main():
     mono = pygame.font.SysFont("consolas", 18)
 
     # layout
-    right_rect = pygame.Rect(LEFT_W + PADDING, 70, WIDTH - LEFT_W - PADDING * 2, HEIGHT - 86)
-    left_panel_rect = pygame.Rect(PADDING, 35, LEFT_W - PADDING * 2, HEIGHT - 86)
+    right_rect = pygame.Rect(LEFT_W + PADDING, 90, WIDTH - LEFT_W - PADDING * 2, HEIGHT - 120)
+    left_panel_rect = pygame.Rect(32, 90, LEFT_W - PADDING * 2, HEIGHT - 120)
 
     board = SnippetBoard(left_panel_rect, right_rect, font, big, mono)
 
@@ -369,7 +445,7 @@ def main():
     last_meta = None
     last_error = None
 
-    api = LCClient()  # your backend; defaults as you implemented
+    api = LCClient()
     q = queue.Queue()
     sample_slugs = [
         "two-sum",
@@ -377,7 +453,7 @@ def main():
         "longest-substring-without-repeating-characters",
     ]
     slug_idx = 0
-    mode = "blocks"  # start in Blocks
+    mode = "blocks"
 
     def fetch_async(callable_, *args):
         nonlocal loading, last_error
@@ -416,7 +492,7 @@ def main():
                         last_verdict = f"❌ {res.get('message') or 'Failed'}"
                     return res
                 else:
-                    print("RUN (no local judge wired) — first 500 chars:\n", code_text[:500])
+                    # no judge available
                     return None
 
             # forward input
