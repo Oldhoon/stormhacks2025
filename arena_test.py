@@ -33,7 +33,7 @@ class QuickGame:
         self.is_host = None
         self.opponent_conn = None
         self.server_socket = None
-        self.game_port = 65470
+        self.game_port = 443
         self.connected = False
         self.kill = False
         self.running = True
@@ -257,11 +257,31 @@ class QuickGame:
             self.server_socket.listen(1)
             self.server_socket.settimeout(300)  # 5 min
             
-            conn, addr = self.server_socket.accept()
-            
+            while not self.connected:  # Keep accepting until real connection
+                conn, addr = self.server_socket.accept()
+                print(f"Connection from: {addr}")
+                
+                # Ignore localhost connections (LocalTunnel probes)
+                if addr[0] == '127.0.0.1':
+                    print("Ignoring localhost connection")
+                    conn.close()
+                    continue
+                
+                # Real connection!
+                self.opponent_conn = conn
+                self.opponent_conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+                self.connected = True
+                
+                time.sleep(2)
+                self.state = "GAME"
+                threading.Thread(target=self.run_listener, daemon=True).start()
+                break
+                        
             self.opponent_conn = conn
             self.opponent_conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
             self.connected = True
+            conn, addr = self.server_socket.accept()
+            print(f"Connection from: {addr}")  # Add this line
             
             # Start game after short delay
             time.sleep(2)
@@ -276,7 +296,7 @@ class QuickGame:
             self.status_message = "Fill in room code and host!"
             return
         
-        port = int(self.port_input) if self.port_input else 65470
+        port = int(self.port_input) if self.port_input else 443
         self.status_message = "Connecting..."
         
         # Connect in background
