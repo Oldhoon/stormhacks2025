@@ -33,6 +33,26 @@ class Arena:
         self.knight = Knight()
         
         self.running = True
+        
+        self.start_time = pygame.time.get_ticks()
+        self.game_duration = 18000  # 3 minutes in milliseconds (3 * 60 * 1000)
+        self.game_over = False
+
+        self.font = pygame.font.Font(None, 74)
+        self.small_font = pygame.font.Font(None, 48)
+        
+    def check_timer(self):
+        if not self.game_over:
+            elapsed_time = pygame.time.get_ticks() - self.start_time
+            if elapsed_time >= self.game_duration:
+                self.game_over = True
+      
+    def get_remaining_time(self):
+        elapsed_time = pygame.time.get_ticks() - self.start_time
+        remaining_time = max(0, self.game_duration - elapsed_time)
+        minutes = int(remaining_time / 60000)
+        seconds = int((remaining_time % 60000) / 1000)
+        return minutes, seconds
     
     def handle_events(self):
         
@@ -44,8 +64,21 @@ class Arena:
                 pygame.quit()
                 sys.exit()
             if event.type == KEYDOWN:
+                if event.key == K_ESCAPE:
+                    self.running = False
+                    pygame.quit()
+                    sys.exit()
+                if event.key == K_r and self.game_over:
+                    self.__init__()  # Restart the game
+                    return
                 if event.key == K_SPACE:
                     p1_attack_once = True
+                if event.key == K_w:
+                    p2_attack_once = True
+
+            if self.game_over:
+                return  # Don't process movement if game is over
+
             
 
         keys = pygame.key.get_pressed()
@@ -58,6 +91,10 @@ class Arena:
     
     def update(self):
         # self.knight.ai_update(self.samurai)
+        if self.game_over:
+            return
+
+        self.check_timer()
         self.knight.update()
         self.samurai.update()
         
@@ -100,6 +137,28 @@ class Arena:
         self.knight.draw(self.screen)
         self.samurai.draw(self.screen)
         
+        
+               # Draw timer
+        minutes, seconds = self.get_remaining_time()
+        timer_text = self.small_font.render(f"{minutes}:{seconds:02d}", True, (255, 255, 255))
+        timer_rect = timer_text.get_rect(center=(self.screen_width // 2, 50))
+        self.screen.blit(timer_text, timer_rect)
+
+        # Draw game over screen
+        if self.game_over:
+            overlay = pygame.Surface((self.screen_width, self.screen_height))
+            overlay.set_alpha(128)
+            overlay.fill((0, 0, 0))
+            self.screen.blit(overlay, (0, 0))
+            
+            game_over_text = self.font.render("TIME'S UP!", True, (255, 0, 0))
+            text_rect = game_over_text.get_rect(center=(self.screen_width // 2, self.screen_height // 2))
+            self.screen.blit(game_over_text, text_rect)
+            
+            restart_text = self.small_font.render("Press R to Restart or ESC to Quit", True, (255, 255, 255))
+            restart_rect = restart_text.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 80))
+            self.screen.blit(restart_text, restart_rect)
+
         pygame.display.update()
         pygame.display.flip()
     
