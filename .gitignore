@@ -1,0 +1,51 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# macOS system files
+.DS_Store
+
+# PyInstaller
+*.spec
+
+# Logs
+*.log
+
+# IDE settings
+.vscode/
+.idea/
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Local settings or config
+*.env
+.env.*
+
+# Pygame / assets
+assets/**/.DS_Store
+*.wav
+*.mp3
+*.ogg
+*.mp4
+
+# Temporary files
+*.tmp
+*.bak
