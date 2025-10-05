@@ -44,6 +44,7 @@ class Knight:
             "dead": slice_all(ss_death, self.death_sheet),
             "idle":slice_all(ss_idle, self.idle_sheet),
             "walk":slice_all(ss_walk, self.walk_sheet)
+
         }
 
         # Current animation state
