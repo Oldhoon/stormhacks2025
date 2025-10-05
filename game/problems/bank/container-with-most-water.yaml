@@ -1,0 +1,40 @@
+id: "8"
+slug: container-with-most-water
+title: Container With Most Water
+difficulty: Medium
+tags:
+  - Two Pointers
+  - Greedy
+url: https://leetcode.com/problems/container-with-most-water/
+text: |
+  Given n non-negative integers height, each represents a vertical line at
+  index i with height[i]. Find two lines that together with the x-axis form a
+  container that holds the most water.
+
+  Example 1:
+  Input: height = [1,8,6,2,5,4,8,3,7]
+  Output: 49
+  
+  Example 2:
+  Input: height = [1,1]
+  Output: 1
+
+  Example 3:
+  Input: height = [4,3,2,1,4]
+  Output: 16
+
+  Constraints:
+  • 2 <= height.length <= 10^5
+  • 0 <= height[i] <= 10^4
+snippets:
+  - "def maxArea(height: list[int]) -> int:"
+  - "    i, j = 0, len(height) - 1"
+  - "    best = 0"
+  - "    while i < j:"
+  - "        h = min(height[i], height[j])"
+  - "        best = max(best, h * (j - i))"
+  - "        if height[i] < height[j]:"
+  - "            i += 1"
+  - "        else:"
+  - "            j -= 1"
+  - "    return best"

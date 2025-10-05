@@ -1,0 +1,44 @@
+id: "7"
+slug: top-k-frequent-elements
+title: Top K Frequent Elements
+difficulty: Medium
+tags:
+  - Array
+  - Hash Table
+  - Heap
+  - Bucket Sort
+url: https://leetcode.com/problems/top-k-frequent-elements/
+text: |
+  Given an integer array nums and an integer k, return the k most frequent
+  elements. You may return the answer in any order.
+
+  Example 1:
+  Input: nums = [1,1,1,2,2,3], k = 2
+  Output: [1,2]
+
+  Example 2:
+  Input: nums = [1], k = 1
+  Output: [1]
+
+  Example 3:
+  Input: nums = [4,4,4,5,5,6,6,6,6], k = 2
+  Output: [6,4]
+
+  Constraints:
+  • 1 <= nums.length <= 10^5
+  • k is in the range [1, number of unique elements]
+  • It is guaranteed that the answer is unique
+snippets:
+  - "from collections import Counter"
+  - "def topKFrequent(nums: list[int], k: int) -> list[int]:"
+  - "    freq = Counter(nums)"
+  - "    # Bucket by frequency: index = count"
+  - "    buckets: list[list[int]] = [[] for _ in range(len(nums) + 1)]"
+  - "    for x, c in freq.items():"
+  - "        buckets[c].append(x)"
+  - "    ans = []"
+  - "    for c in range(len(nums), 0, -1):"
+  - "        for x in buckets[c]:"
+  - "            ans.append(x)"
+  - "            if len(ans) == k:"
+  - "                return ans"
