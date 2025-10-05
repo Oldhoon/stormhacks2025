@@ -345,7 +345,7 @@ class Knight:
         # Attack hit window occurs near the end of the swing
         attack_frames = self.animations.get("attack", [])
         if attack_frames:
-            self.attack_hit_start = max(0, len(attack_frames) - 2)  # final frames connect
+            self.attack_hit_start = max(0, len(attack_frames) - 1)
             self.attack_hit_end = len(attack_frames) - 1
         else:
             self.attack_hit_start = 0
