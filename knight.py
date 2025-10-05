@@ -41,3 +41,4 @@ class Knight:
         }
         if animation_type in animations:
             self.current_sheet = animations[animation_type]
+

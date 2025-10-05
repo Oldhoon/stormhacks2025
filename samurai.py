@@ -11,6 +11,7 @@ START_X = 0
 START_Y = 300# top left corner for now #TODO
 SCALE = 4
 COLOR = (0,0,0)
+MOVE_BY = 5
 
 animation_cooldown= 200
 
@@ -69,7 +70,7 @@ class Samurai:
     def draw(self, screen):
         """Draw samurai on screen"""
         animation_list = self.animations[self.animation_type]
-        screen.blit(animation_list[self.frame_index], (START_X,START_Y))
+        screen.blit(animation_list[self.frame_index], self.position)
 
     def set_animation(self, animation_type):
         """Change animation type"""
@@ -77,4 +78,13 @@ class Samurai:
             self.animation_type = self.animations[animation_type]
             self.frame_index=0
 
+    def idle(self):
+        self.set_animation("idle")
 
+    def move_right(self):
+        self.set_animation("run")
+        self.position = (self.position[0] + MOVE_BY, self.position[1])
+
+    def move_left(self):
+        self.set_animation("run")
+        self.position = (self.position[0] - MOVE_BY, self.position[1])

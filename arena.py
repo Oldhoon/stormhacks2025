@@ -53,5 +53,4 @@ class Arena:
             self.draw()
             self.clock.tick(self.fps)
 
-
 Arena().run()
