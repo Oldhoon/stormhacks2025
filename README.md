@@ -10,3 +10,10 @@ Get speedier at Leetcode problems, and get practice in a roguelike experience.
 - Knight: https://xzany.itch.io/free-knight-2d-pixel-art
 - Background: https://ansimuz.itch.io/cyberpunk-street-environment
 - Health bar: https://bdragon1727.itch.io/basic-pixel-health-bar-and-scroll-bar
+
+
+# Setup:
+- (Optional) Create and activate a venv to isolate dependencies:
+  - `python3 -m venv .venv`
+  - `source .venv/bin/activate`
+- pip install -r requirements.txt
