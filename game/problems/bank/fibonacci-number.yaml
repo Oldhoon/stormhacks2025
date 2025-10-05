@@ -1,0 +1,35 @@
+id: "12"
+slug: fibonacci-number
+title: Fibonacci Number
+difficulty: Easy
+tags:
+  - DP
+  - Math
+url: https://leetcode.com/problems/fibonacci-number/
+text: |
+  The Fibonacci numbers, commonly denoted F(n), form a sequence called the Fibonacci
+  sequence, such that each number is the sum of the two preceding ones, starting
+  from 0 and 1. Given n, return F(n).
+
+  Example 1:
+  Input: n = 2
+  Output: 1
+
+  Example 2:
+  Input: n = 3
+  Output: 2
+
+  Example 3:
+  Input: n = 10
+  Output: 55
+
+  Constraints:
+  • 0 <= n <= 30
+snippets:
+  - "def fib(n: int) -> int:"
+  - "    if n < 2:"
+  - "        return n"
+  - "    a, b = 0, 1"
+  - "    for _ in range(2, n + 1):"
+  - "        a, b = b, a + b"
+  - "    return b"
