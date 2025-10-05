@@ -17,6 +17,7 @@ ATTACK_STEPS = 7
 HURT_STEPS = 4
 IDLE_STEPS = 10
 RUN_STEPS = 16
+DAMAGE_AMOUNT = 10 # Amount of damage taken when hurt
 class Samurai:
 
     def __init__(self):
@@ -55,16 +56,24 @@ class Samurai:
             "run": self.run_list
         }
 
+        # Current animation state
         self.animation_type = "idle"
         self.frame_index = 0
         self.position = (START_X,START_Y)
         self.last_update = pg.time.get_ticks()
         self.image = self.idle_list[0]
         self.rect = self.image.get_rect(center=self.position)
+        
+        # movement related fields
         self.can_move_right = True
         self.can_move_left = True
+        
+        # combat related fields
+        self.hp = MAX_HP
+        self.can_take_damage = False
         self.is_attacking = False
-
+        self.attack_hit_applied = False
+        
     def update(self):
         """Update samurai state"""
         now = pg.time.get_ticks()
@@ -85,18 +94,30 @@ class Samurai:
                     self.frame_index %= len(frames)
         self.rect.center = self.position
 
-
-
+    def take_damage(self):
+        if self.can_take_damage and not self.is_attacking:
+            self.hp -= DAMAGE_AMOUNT
+            if self.hp < 0:
+                self.hp = 0
+                self.is_alive = False # Samurai is defeated
+            self.set_animation("hurt")
+            
     def draw(self, screen):
         """Draw samurai on screen"""
         animation_list = self.animations[self.animation_type]
         screen.blit(animation_list[self.frame_index], self.position)
+        
+    def is_hit_active(self) -> bool:
+        # Only during attack frames 2..4, 
+        return self.is_attacking and 2 <= self.frame_index <= 4
+
 
     def set_animation(self, animation_type):
         if animation_type == "attack":
             if self.is_attacking:
                 return
             self.is_attacking = True
+            self.attack_hit_applied = False # reset hit applied flag
         """Change animation type"""
         if animation_type in self.animations and animation_type != self.animation_type:
             self.animation_type = animation_type
