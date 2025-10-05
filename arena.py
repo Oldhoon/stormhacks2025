@@ -130,6 +130,10 @@ class Arena:
                 self.knight.take_damage()
                 self.samurai.attack_hit_applied = True
             
+            if self.knight.is_hit_active() and not self.knight.attack_hit_applied:
+                self.samurai.take_damage()
+                self.knight.attack_hit_applied = True
+            
         else:
             self.samurai.can_move_right=True
             self.knight.can_move_left=True
