@@ -1,8 +1,3 @@
-from asyncio import timeout
-
-import pygame.time
-
-import spritesheet
 import pygame as pg
 import spritesheet
 
