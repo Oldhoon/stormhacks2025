@@ -9,14 +9,14 @@ START_Y = 430
 SCALE = 3
 COLOR = (0,0,0)
 ANIMATION_COOLDOWN = 200
-MOVE_BY = 5
+MOVE_BY = 1
 
 HEALTH_FW = 48  # Health frame width
 HEALTH_FH = 16  # Health frame height
 HEALTH_SCALE = 2  # Health scale
 HEALTH_STYLE = 3  # 0=hearts, 1=blue, 2=green, 3=gray, 4=pink, 5=purple, 6=orange dots, etc.
 HEALTH_DISPLAY_SCALE = 1.5
-DAMAGE_AMOUNT = 100 # Amount of damage taken when hurt
+DAMAGE_AMOUNT = 25 # Amount of damage taken when hurt
 DEATH_DURATION = 2000
 class Knight:
 
@@ -27,7 +27,8 @@ class Knight:
         self.death_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/DEATH.png").convert_alpha()
         self.idle_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/IDLE.png").convert_alpha()
         self.walk_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/WALK.png").convert_alpha()
-    
+        self.hurt_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/HURT.png").convert_alpha()
+        
         health_sheet_full = pygame.image.load(r"assets/health.png").convert_alpha()
         y_start = 16 + (HEALTH_STYLE * 16)  # Skip first row (hearts), start at row 1
         self.health_sheet = health_sheet_full.subsurface((0, y_start, 256, 16)).copy()
@@ -36,11 +37,13 @@ class Knight:
         self.death_sheet = pygame.transform.flip(self.death_sheet, True, False)
         self.idle_sheet = pygame.transform.flip(self.idle_sheet, True, False)
         self.walk_sheet = pygame.transform.flip(self.walk_sheet, True, False)
+        self.hurt_sheet = pygame.transform.flip(self.hurt_sheet, True, False)
 
         ss_attack = spritesheet.SpriteSheet(self.attack1_sheet)
         ss_death = spritesheet.SpriteSheet(self.death_sheet)
         ss_idle = spritesheet.SpriteSheet(self.idle_sheet)
         ss_walk = spritesheet.SpriteSheet(self.walk_sheet)
+        ss_hurt = spritesheet.SpriteSheet(self.hurt_sheet)
         ss_health = spritesheet.SpriteSheet(self.health_sheet)
 
 
@@ -63,8 +66,10 @@ class Knight:
             "dead": slice_all(ss_death, self.death_sheet),
             "idle":slice_all(ss_idle, self.idle_sheet),
             "health":slice_health(ss_health, self.health_sheet),
+            "hurt":slice_all(ss_hurt, self.hurt_sheet),
             "walk":slice_all(ss_walk, self.walk_sheet)
         }
+        self.animations["hurt"].reverse()
         self.animations["walk"].reverse()
         self.animations["dead"].reverse()
         self.animations["attack"].reverse()
@@ -84,7 +89,7 @@ class Knight:
         self.can_move_right = True
         self.hp = MAX_HP
         self.dead_time = None
-        self.speed = MOVE_BY // 2
+        self.speed = MOVE_BY
         
         # combat related fields
         self.alive = True
@@ -195,10 +200,12 @@ class Knight:
     def take_damage(self):
         if self.can_take_damage and not self.is_attacking:
             self.hp -= DAMAGE_AMOUNT
+            self.position = (self.position[0] + 100, self.position[1])  # Knockback effect
             if self.hp <= 0:
                 self.hp = 0
                 self.alive = False
                 self.set_animation("dead")
+                self.dead_time = pygame.time.get_ticks()
            
         
     def is_hit_active(self) -> bool:
