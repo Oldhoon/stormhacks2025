@@ -59,7 +59,17 @@ class Arena:
         self.knight.update()
         self.samurai.update()
 
-
+    def check_screen_collision(self):
+        samurai_rect = self.samurai.get_rect()
+        if samurai_rect.x <= -400:
+            self.samurai.can_move_left = False
+        else:
+            self.samurai.can_move_left = True
+        knight_rect = self.knight.get_rect()
+        if knight_rect.x >= self.screen_width - 150:
+            self.knight.can_move_right = False
+        else:
+            self.knight.can_move_right = True
 
     def check_collision(self):
         if self.knight.get_rect().colliderect(self.samurai.get_rect()):
@@ -85,6 +95,7 @@ class Arena:
             self.draw()
             self.clock.tick(self.fps)
             self.check_collision()
+            self.check_screen_collision()
 
 
 Arena().run()
