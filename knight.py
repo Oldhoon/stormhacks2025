@@ -17,7 +17,8 @@ HEALTH_SCALE = 2  # Health scale
 HEALTH_STYLE = 3  # 0=hearts, 1=blue, 2=green, 3=gray, 4=pink, 5=purple, 6=orange dots, etc.
 HEALTH_DISPLAY_SCALE = 1.5
 DAMAGE_AMOUNT = 25 # Amount of damage taken when hurt
-DEATH_DURATION = 2000
+DEATH_DURATION = 30000
+KNOCKBACK = 150
 class Knight:
 
     def __init__(self):
@@ -108,20 +109,37 @@ class Knight:
             if self.dead_time and pygame.time.get_ticks() - self.dead_time > DEATH_DURATION:
                 self.revive()
             return
+        if self.animation_type in ("hurt", "dead"):
+            return 
         
-        samurai_x, samurai_y = samurai.position
-        knight_x, knight_y = self.position
+        # If colliding, do not move. Try to attack once 
+        if self.get_rect().colliderect(samurai.get_rect()):
+            if not self.is_attacking:
+                self.attack()
+            return
+
+        sx, sy = samurai.position
+        kx, ky = self.position
+        dist_x = sx - kx
         
-        dist_x = samurai_x - knight_x
-        
-        if abs(dist_x) > 100:
-            if dist_x > 0:
-                self.position = (knight_x + self.speed, knight_y)
+        # If close enough, attack instead of walking into target
+        ATTACK_RANGE = 100
+        if abs(dist_x) <= ATTACK_RANGE:
+            if not self.is_attacking:
+                self.attack()
+            return
+        if dist_x > 0:
+            if self.can_move_right:
+                self.position = (kx + self.speed, ky) 
+                self.set_animation("walk")
             else:
-                self.position = (knight_x - self.speed, knight_y)
-            self.set_animation("walk")
+                self.idle()
         else:
-            self.attack()
+            if self.can_move_left:
+                self.position = (kx - self.speed, ky)
+                self.set_animation("walk")
+            else:
+                self.idle()
             
     def get_health_frame_index(self):
         if len(self.animations["health"]) == 0:
@@ -152,6 +170,12 @@ class Knight:
                     self.frame_index += 1
                     if self.frame_index >= len(frames):
                         self.is_attacking = False
+                        self.frame_index = 0
+                        self._queued_anim = "idle"
+            
+                elif current_anim == "hurt":
+                    self.frame_index += 1
+                    if self.frame_index >= len(frames):
                         self.frame_index = 0
                         self._queued_anim = "idle"
                 else:
@@ -198,14 +222,20 @@ class Knight:
             
             
     def take_damage(self):
-        if self.can_take_damage and not self.is_attacking:
+        if self.can_take_damage:
             self.hp -= DAMAGE_AMOUNT
-            self.position = (self.position[0] + 100, self.position[1])  # Knockback effect
+            
+            self.position = (self.position[0] + KNOCKBACK, self.position[1])  # Knockback effect
             if self.hp <= 0:
                 self.hp = 0
                 self.alive = False
+                self.is_attacking = False
+                self.attack_hit_applied = True
                 self.set_animation("dead")
                 self.dead_time = pygame.time.get_ticks()
+            else:
+                self.is_attacking = False
+                self.set_animation("hurt")
            
         
     def is_hit_active(self) -> bool:

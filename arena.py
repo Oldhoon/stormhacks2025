@@ -12,7 +12,7 @@ class PlayerInput:
     right:bool = False
     attack:bool = False
 
-TIMER = 18000 
+TIMER = 180000  # 3 minutes in milliseconds 
 
 class Arena:
     def __init__(self):
@@ -34,10 +34,10 @@ class Arena:
         self.knight = Knight()
         
         self.running = True
+        self.game_over = False
         
         self.start_time = pygame.time.get_ticks()
         self.game_duration = TIMER  # 3 minutes in milliseconds (3 * 60 * 1000)
-        self.game_over = False
 
         self.font = pygame.font.Font(None, 74)
         self.small_font = pygame.font.Font(None, 48)
@@ -91,11 +91,16 @@ class Arena:
         self.samurai.apply_input(p1)
     
     def update(self):
-        self.knight.ai_update(self.samurai)
         if self.game_over:
             return
-
         self.check_timer()
+        # set movement and damage flags first 
+        self.check_collision()
+        self.check_screen_collision()
+        
+        # then update each character
+        self.knight.ai_update(self.samurai)
+
         self.knight.update()
         self.samurai.update()
         
@@ -128,7 +133,6 @@ class Arena:
         else:
             self.samurai.can_move_right=True
             self.knight.can_move_left=True
-            self.will_take_damage = True
             self.samurai.can_take_damage= False
             self.knight.can_take_damage= False 
     
@@ -166,9 +170,8 @@ class Arena:
     def run(self):
         while self.running:
             self.handle_events()
-            self.update()
-            self.check_collision()
-            self.check_screen_collision()
+            if not self.game_over:
+                self.update()
             self.draw()
             self.clock.tick(self.fps)
 
