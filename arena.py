@@ -328,6 +328,7 @@ class Arena:
         # Draw title
         problem_big = pygame.font.SysFont(None, 36)
         problem_font = pygame.font.SysFont(None, 24)
+        problem_small = pygame.font.SysFont(None, 20)
         
         title_surf = problem_big.render("Solve the Problem to Continue!", True, PROBLEM_FG if PROBLEM_FG else (230, 230, 235))
         self.screen.blit(title_surf, (16, 20))
@@ -337,6 +338,18 @@ class Arena:
         timer_color = (255, 120, 120) if remaining <= 10 else (PROBLEM_ACCENT if PROBLEM_ACCENT else (120, 180, 255))
         timer_surf = problem_big.render(f"Time: {remaining}s", True, timer_color)
         self.screen.blit(timer_surf, (16, 48))
+        
+        # Draw tags and URL if available
+        if self.current_problem:
+            y_offset = 48
+            if self.current_problem.tags:
+                tags_text = "Tags: " + ", ".join(self.current_problem.tags[:3])  # Limit to first 3 tags
+                tags_surf = problem_small.render(tags_text, True, (170, 170, 180))
+                self.screen.blit(tags_surf, (self.screen_width - tags_surf.get_width() - 16, y_offset))
+            
+            if self.current_problem.url:
+                url_surf = problem_small.render(f"Problem URL: {self.current_problem.url[:50]}...", True, (170, 170, 180))
+                self.screen.blit(url_surf, (self.screen_width - url_surf.get_width() - 16, y_offset + 22))
         
         # Draw problem panel and snippet board
         self.snippet_board.draw(self.screen)
