@@ -4,7 +4,7 @@ import spritesheet
 FW = 96
 FH = 84
 MAX_HP =100
-START_X = 800
+START_X = 900
 START_Y = 430
 SCALE = 3
 COLOR = (0,0,0)
@@ -31,6 +31,7 @@ class Knight:
         ss_idle = spritesheet.SpriteSheet(self.idle_sheet)
         ss_walk = spritesheet.SpriteSheet(self.walk_sheet)
 
+
         def slice_all(ss, sheet):
             frames =[]
             count = sheet.get_width()//FW
@@ -43,6 +44,7 @@ class Knight:
             "dead": slice_all(ss_death, self.death_sheet),
             "idle":slice_all(ss_idle, self.idle_sheet),
             "walk":slice_all(ss_walk, self.walk_sheet)
+
         }
 
         # Current animation state
@@ -98,7 +100,8 @@ class Knight:
             
         
     def is_alive(self):
-        return self.alive
+        return self.alive        self.can_move_right = True
+
 
 
     def update(self):
@@ -128,8 +131,9 @@ class Knight:
         self.set_animation("idle")
 
     def move_right(self):
-        self.set_animation("walk")
-        self.position = (self.position[0] + MOVE_BY, self.position[1])
+        if self.can_move_right:
+            self.set_animation("walk")
+            self.position = (self.position[0] + MOVE_BY, self.position[1])
 
 
     def move_left(self):
