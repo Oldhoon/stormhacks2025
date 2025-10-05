@@ -10,12 +10,6 @@ try:
 except ImportError:
     from api import LCClient
 
-# optional local judge (safe if missing)
-try:
-    from local_cli.judge_cli import run_local as local_run
-except Exception:
-    local_run = None  # no local judge available
-
 # ------- layout / colors -------
 WIDTH, HEIGHT = 900, 600
 BG = (18, 18, 20)
@@ -84,14 +78,52 @@ class _Block:
         self.dragging = False
         self.offset = (0, 0)
 
+    def _wrap_text(self, font, text, max_w):
+        words = text.split(' ')
+        lines, cur = [], ""
+        for w in words:
+            test = (cur + " " + w).strip()
+            if font.size(test)[0] <= max_w:
+                cur = test
+            else:
+                if cur:
+                    lines.append(cur)
+                # if a single token is too wide, hard-break it
+                while font.size(w)[0] > max_w and len(w) > 1:
+                    lo, hi = 1, len(w)
+                    cut = 1
+                    while lo <= hi:
+                        mid = (lo + hi) // 2
+                        if font.size(w[:mid])[0] <= max_w:
+                            cut = mid
+                            lo = mid + 1
+                        else:
+                            hi = mid - 1
+                    lines.append(w[:cut])
+                    w = w[cut:]
+                cur = w
+        if cur:
+            lines.append(cur)
+        return lines
+
+    def measure_height(self, font, w, pad=8, line_gap=2):
+        text_w = max(0, w - pad * 2)
+        lines = self._wrap_text(font, self.text, text_w)
+        h = pad * 2 + len(lines) * font.get_height() + (len(lines) - 1) * line_gap
+        return h, lines
+
     def draw(self, surf, x, y, w, font, active=False):
         pad = 8
-        txt = font.render(self.text, True, FG)
-        h = txt.get_height() + pad * 2
+        line_gap = 2
+        h, lines = self.measure_height(font, w, pad, line_gap)
         self.rect = pygame.Rect(x, y, w, h)
         pygame.draw.rect(surf, (45, 45, 55), self.rect, border_radius=8)
         pygame.draw.rect(surf, ACCENT if active else (60, 60, 75), self.rect, 2, border_radius=8)
-        surf.blit(txt, (x + pad, y + pad))
+        ty = y + pad
+        for line in lines:
+            txt = font.render(line, True, FG)
+            surf.blit(txt, (x + pad, ty))
+            ty += font.get_height() + line_gap
         return h + 6
 
 class SnippetBoard:
@@ -140,7 +172,22 @@ class SnippetBoard:
         # layout helpers for consistent insert math
         self._left_list_top = self.left_rect.y + 50
         self._right_list_top = self.right_rect.y + 56
-        self._row_h = 36  # row height used for insert-position math
+    def _index_from_y(self, y_rel, blocks, list_width, font):
+        # returns index where a drop at y_rel should insert
+        acc = 0
+        for i, b in enumerate(blocks):
+            h, _ = b.measure_height(self.mono, list_width)
+            if y_rel < acc + h / 2:
+                return i
+            acc += h + 6  # match draw() return increment minus 6 buffer
+        return len(blocks)
+
+    def _y_for_index(self, idx, blocks, list_top, list_width, font):
+        acc = 0
+        for i in range(min(idx, len(blocks))):
+            h, _ = blocks[i].measure_height(self.mono, list_width)
+            acc += h + 6
+        return list_top + acc
 
         # original order map for proper RESET behavior
         self._initial_order = {}
@@ -317,11 +364,13 @@ class SnippetBoard:
             if self.right_rect.collidepoint(e.pos):
                 y = my - self._right_list_top
                 self._insert_target = "right"
-                self._insert_idx = self._clamp_idx(y // self._row_h, "right")
+                list_w = self.right_rect.w - 24
+                self._insert_idx = self._index_from_y(y, self.assemble, list_w, self.mono)
             elif self.left_rect.collidepoint(e.pos):
                 y = my - self._left_list_top
                 self._insert_target = "left"
-                self._insert_idx = self._clamp_idx(y // self._row_h, "left")
+                list_w = self.left_rect.w - 24
+                self._insert_idx = self._index_from_y(y, self.palette, list_w, self.mono)
             else:
                 self._insert_target = None
                 self._insert_idx = None
@@ -347,10 +396,12 @@ class SnippetBoard:
 
         # insertion guide line
         if self._insert_target == "right" and self._insert_idx is not None:
-            y_line = self._right_list_top + self._insert_idx * self._row_h
+            list_w = self.right_rect.w - 24
+            y_line = self._y_for_index(self._insert_idx, self.assemble, self._right_list_top, list_w, self.mono)
             pygame.draw.line(surf, ACCENT, (self.right_rect.x + 10, y_line), (self.right_rect.right - 10, y_line), 2)
         elif self._insert_target == "left" and self._insert_idx is not None:
-            y_line = self._left_list_top + self._insert_idx * self._row_h
+            list_w = self.left_rect.w - 24
+            y_line = self._y_for_index(self._insert_idx, self.palette, self._left_list_top, list_w, self.mono)
             pygame.draw.line(surf, ACCENT, (self.left_rect.x + 10, y_line), (self.left_rect.right - 10, y_line), 2)
 
         # CHECK button
@@ -380,9 +431,8 @@ class SnippetBoard:
             _bar(hud_y + 44, "Run",   self.last_run)
             surf.blit(self.big.render(f"SCORE: {self.last_final}", True, FG), (hud_x, hud_y + 70))
         else:
-            # subtle hint only; no percentages
-            hint = "Press CHECK to see score  •  Press R or RESET to move all back"
-            surf.blit(self.font.render(hint, True, MUTED), (self.right_rect.right - 360, self.right_rect.y + 8))
+            # no hint text in Assemble panel (requested)
+            pass
 
 # ---------- scoring helpers ----------
 def lcs_len(a, b):
