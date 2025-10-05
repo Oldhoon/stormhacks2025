@@ -472,4 +472,5 @@ class Arena:
             self.draw()
 
 
-Arena().run()
+if __name__ == "__main__":
+    Arena().run()
