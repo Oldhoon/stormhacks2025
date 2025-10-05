@@ -178,7 +178,7 @@
 
 # Arena().run()
 from dataclasses import dataclass
-import math
+import random
 
 import pygame
 from pygame.locals import *
@@ -187,19 +187,66 @@ from samurai import Samurai
 from knight import Knight
 from game.leetcode_app import LeetCodeGame
 
+TIMER = 180_000  # 3 minutes
+LEETCODE_TIME_LIMIT = 180  # seconds
+PLAYER_MAX_LIVES = 5
+REVIVE_WINDOW_MS = 3000
+REVIVE_MASH_INCREMENT = 8
+
+
+COMPLEXITY_QUESTION_BANK = [
+    {
+        "prompt": "What is the average-case time complexity of quicksort?",
+        "options": [
+            {"text": "O(n log n)", "correct": True},
+            {"text": "O(n^2)", "correct": False},
+            {"text": "O(n)", "correct": False},
+            {"text": "O(log n)", "correct": False},
+        ],
+    },
+    {
+        "prompt": "What is the lookup time complexity of a hash map (average case)?",
+        "options": [
+            {"text": "O(1)", "correct": True},
+            {"text": "O(log n)", "correct": False},
+            {"text": "O(n)", "correct": False},
+            {"text": "O(n log n)", "correct": False},
+        ],
+    },
+    {
+        "prompt": "What is the time complexity of inserting into a binary search tree (average case)?",
+        "options": [
+            {"text": "O(log n)", "correct": True},
+            {"text": "O(n)", "correct": False},
+            {"text": "O(1)", "correct": False},
+            {"text": "O(n log n)", "correct": False},
+        ],
+    },
+    {
+        "prompt": "What is the time complexity of merge sort?",
+        "options": [
+            {"text": "O(n log n)", "correct": True},
+            {"text": "O(n)", "correct": False},
+            {"text": "O(n^2)", "correct": False},
+            {"text": "O(log n)", "correct": False},
+        ],
+    },
+    {
+        "prompt": "What is the worst-case time complexity of accessing an element in an array?",
+        "options": [
+            {"text": "O(1)", "correct": True},
+            {"text": "O(n)", "correct": False},
+            {"text": "O(log n)", "correct": False},
+            {"text": "O(n log n)", "correct": False},
+        ],
+    },
+]
 
 @dataclass
 class PlayerInput:
     left: bool = False
     right: bool = False
     attack: bool = False
-
-
-TIMER = 180_000  # 3 minutes
-LEETCODE_TIME_LIMIT = 180  # seconds
-PLAYER_MAX_LIVES = 5
-REVIVE_WINDOW_MS = 3000
-REVIVE_HIT_INCREMENT = 8
 
 
 class Arena:
@@ -221,6 +268,7 @@ class Arena:
 
         self.font = pygame.font.Font(None, 74)
         self.small_font = pygame.font.Font(None, 48)
+        self.body_font = pygame.font.Font(None, 40)
 
         self.game_duration = TIMER
         self._reset_state()
@@ -255,10 +303,18 @@ class Arena:
         self.pending_knight_attack = False
 
         self.revive_used = False
-        self.revive_prompt_started: int | None = None
         self.revive_meter = 0.0
         self.revive_meter_target = 100.0
         self.revive_deadline: int | None = None
+        self.revive_prompt_started: int | None = None
+
+        self.challenge_choice: str | None = None
+        self.challenge_select_rects: dict[str, pygame.Rect] = {}
+
+        self.complexity_question: dict | None = None
+        self.complexity_options: list[dict] = []
+        self.complexity_option_rects: list[tuple[pygame.Rect, dict]] = []
+        self.complexity_deadline: int | None = None
 
         self._apply_level_scaling()
 
@@ -269,10 +325,11 @@ class Arena:
     def _begin_battle(self):
         if self.state == "battle":
             return
+        now = pygame.time.get_ticks()
         if self.start_time is None:
-            self.start_time = pygame.time.get_ticks()
+            self.start_time = now
         if self.pause_started_at is not None:
-            self.pause_accumulated += max(0, pygame.time.get_ticks() - self.pause_started_at)
+            self.pause_accumulated += max(0, now - self.pause_started_at)
             self.pause_started_at = None
         self.state = "battle"
 
@@ -329,6 +386,12 @@ class Arena:
                     if event.key in (K_RETURN, K_SPACE):
                         self._begin_battle()
                     continue
+                if self.state == "challenge_select":
+                    if event.key in (K_l, K_L, K_1, K_KP1):
+                        self._choose_challenge("leetcode")
+                    elif event.key in (K_t, K_T, K_2, K_KP2):
+                        self._choose_challenge("complexity")
+                    continue
                 if self.state == "revive_prompt":
                     if event.key in (K_r, K_RETURN, K_SPACE):
                         self._begin_revive_mash()
@@ -337,24 +400,48 @@ class Arena:
                     continue
                 if self.state == "revive_mash":
                     if event.key == K_SPACE:
-                        self.revive_meter = min(self.revive_meter_target, self.revive_meter + REVIVE_HIT_INCREMENT)
+                        self.revive_meter = min(self.revive_meter_target, self.revive_meter + REVIVE_MASH_INCREMENT)
                     elif event.key == K_c:
                         self._finish_revive(False)
+                    continue
+                if self.state == "complexity_quiz":
+                    index = None
+                    if event.key in (K_1, K_KP1):
+                        index = 0
+                    elif event.key in (K_2, K_KP2):
+                        index = 1
+                    elif event.key in (K_3, K_KP3):
+                        index = 2
+                    elif event.key in (K_4, K_KP4):
+                        index = 3
+                    if index is not None and index < len(self.complexity_options):
+                        self._resolve_complexity_answer(self.complexity_options[index]["correct"])
                     continue
                 if self.state == "battle" and not self.game_over:
                     if event.key == K_SPACE:
                         p1_attack_once = True
 
+            if event.type == MOUSEBUTTONDOWN and event.button == 1:
+                if self.state == "challenge_select" and self.challenge_select_rects:
+                    for choice, rect in self.challenge_select_rects.items():
+                        if rect.collidepoint(event.pos):
+                            self._choose_challenge(choice)
+                            break
+                elif self.state == "complexity_quiz" and self.complexity_option_rects:
+                    for rect, option in self.complexity_option_rects:
+                        if rect.collidepoint(event.pos):
+                            self._resolve_complexity_answer(option["correct"])
+                            break
+
         if self.state == "battle" and not self.game_over:
             keys = pygame.key.get_pressed()
             p1 = PlayerInput(
-                left=keys[pygame.K_a],
-                right=keys[pygame.K_d],
+                left=keys[K_a],
+                right=keys[K_d],
                 attack=p1_attack_once,
             )
             self.samurai.apply_input(p1)
 
-    # ---------------------------------------------------------------- battle logic -------------------------------------------------------------
     def _update_battle(self):
         if self.game_over or self.state != "battle":
             return
@@ -375,7 +462,7 @@ class Arena:
         self.samurai.update()
 
         if not self.knight.alive and self.challenge is None and not self.victory and not self.game_over:
-            self._start_challenge()
+            self._enter_challenge_selection()
 
     def _execute_pending_knight_attack(self):
         sx, sy = self.samurai.position
@@ -385,15 +472,63 @@ class Arena:
         self.knight.attack()
         self.pending_knight_attack = False
 
-    def _start_challenge(self):
+    def _enter_challenge_selection(self):
+        if self.pause_started_at is None:
+            self.pause_started_at = pygame.time.get_ticks()
+        self.state = "challenge_select"
+        self.challenge_choice = None
+        self.challenge_select_rects = {}
+        self.challenge = None
+        self.complexity_question = None
+        self.complexity_options = []
+        self.complexity_option_rects = []
+
+    def _choose_challenge(self, choice: str):
+        if choice == "leetcode":
+            self._start_leetcode_challenge()
+        elif choice == "complexity":
+            self._start_complexity_quiz()
+
+    def _start_leetcode_challenge(self):
+        self.challenge_choice = "leetcode"
         self.state = "challenge"
         self.challenge = LeetCodeGame(self.screen, strict_mode=True, time_limit_sec=LEETCODE_TIME_LIMIT)
         self.pause_started_at = pygame.time.get_ticks()
 
+    def _start_complexity_quiz(self):
+        self.challenge_choice = "complexity"
+        self.state = "complexity_quiz"
+        now = pygame.time.get_ticks()
+        if self.pause_started_at is None:
+            self.pause_started_at = now
+        self.complexity_deadline = now + LEETCODE_TIME_LIMIT * 1000
+        self.complexity_question = random.choice(COMPLEXITY_QUESTION_BANK)
+        self.complexity_options = [dict(opt) for opt in self.complexity_question["options"]]
+        random.shuffle(self.complexity_options)
+        self.complexity_option_rects = []
+
+    def _resolve_complexity_answer(self, correct: bool):
+        if correct:
+            self._complete_challenge(True, reward_health=False, message="Correct! Level {level} incoming. Score: {score}{life_note}")
+        else:
+            self._complete_challenge(False, reward_health=False, message="Incorrect! The knight returns.")
+
+    def _update_complexity_quiz(self):
+        if self.complexity_deadline is None:
+            return
+        if pygame.time.get_ticks() >= self.complexity_deadline:
+            self._complete_challenge(
+                success=False,
+                reward_health=False,
+                message="Out of time! The knight returns.",
+            )
+
+    def _start_challenge(self):
+        self._enter_challenge_selection()
+
     def _finish_challenge(self):
         if not self.challenge:
             return
-
         result = self.challenge.get_result()
         reason = self.challenge.get_failure_reason()
 
@@ -401,65 +536,82 @@ class Arena:
             self.running = False
             self.quit_requested = True
         else:
-            now = pygame.time.get_ticks()
-            if self.pause_started_at is not None:
-                self.pause_accumulated += max(0, now - self.pause_started_at)
-            self.pause_started_at = None
-
             if result == "success":
-                self.knights_defeated += 1
-                self.score += 100
-                healed_note = ""
-                if self.player_lives < self.max_lives:
-                    self.player_lives += 1
-                    healed_note = " | Life +1"
-                self.level += 1
-                self._set_info(f"Knight defeated! Level {self.level} incoming. Score: {self.score}{healed_note}", 3200)
-                self.samurai = Samurai()
-                self.knight = Knight()
-                self._apply_level_scaling()
-                self.pending_knight_attack = False
-                self.state = "battle"
+                self._complete_challenge(True, reward_health=True, message="Knight defeated! Level {level} incoming. Score: {score}{life_note}")
             else:
                 if reason == "timeout":
-                    self._set_info("Out of time! The knight strikes again.", 2500)
+                    message = "Out of time! The knight strikes again."
                 else:
-                    self._set_info("Incorrect order! The knight returns.", 2500)
-                self.samurai = Samurai()
-                self.knight = Knight()
-                self._apply_level_scaling()
-                self.pending_knight_attack = True
-                self.state = "battle"
+                    message = "Incorrect order! The knight returns."
+                self._complete_challenge(False, reward_health=False, message=message)
         self.challenge = None
 
+    def _complete_challenge(self, success: bool, *, reward_health: bool, message: str):
+        now = pygame.time.get_ticks()
+        if self.pause_started_at is not None:
+            self.pause_accumulated += max(0, now - self.pause_started_at)
+            self.pause_started_at = None
+
+        self.challenge = None
+        self.challenge_choice = None
+        self.complexity_question = None
+        self.complexity_options = []
+        self.complexity_option_rects = []
+        self.complexity_deadline = None
+
+        if success:
+            self.knights_defeated += 1
+            self.score += 100
+            self.level += 1
+            healed_note = ""
+            if reward_health and self.player_lives < self.max_lives:
+                self.player_lives += 1
+                healed_note = " | Life +1"
+            formatted = message.format(level=self.level, score=self.score, life_note=healed_note)
+            self._set_info(formatted, 3200)
+            self.samurai = Samurai()
+            self.knight = Knight()
+            self._apply_level_scaling()
+            self.pending_knight_attack = False
+            self.state = "battle"
+            self._begin_battle()
+        else:
+            self._set_info(message, 2500)
+            self.samurai = Samurai()
+            self.knight = Knight()
+            self._apply_level_scaling()
+            self.pending_knight_attack = True
+            self.state = "battle"
+            self._begin_battle()
     # ---------------------------------------------------------------- revive flow --------------------------------------------------------------
     def _start_revive_prompt(self):
-        self.state = "revive_prompt"
+        if self.revive_used:
+            self._finish_revive(False)
+            return
         if self.pause_started_at is None:
             self.pause_started_at = pygame.time.get_ticks()
         self.revive_prompt_started = pygame.time.get_ticks()
         self.revive_meter = 0.0
         self.revive_deadline = None
+        self.state = "revive_prompt"
 
     def _begin_revive_mash(self):
         if self.revive_used:
             self._finish_revive(False)
             return
         self.revive_used = True
-        self.state = "revive_mash"
         self.revive_meter = 0.0
         self.revive_deadline = pygame.time.get_ticks() + REVIVE_WINDOW_MS
+        self.state = "revive_mash"
 
     def _update_revive_mash(self):
         if self.revive_deadline is None:
             return
-        now = pygame.time.get_ticks()
         if self.revive_meter >= self.revive_meter_target:
             self._finish_revive(True)
             return
-        if now >= self.revive_deadline:
-            success = self.revive_meter >= self.revive_meter_target
-            self._finish_revive(success)
+        if pygame.time.get_ticks() >= self.revive_deadline:
+            self._finish_revive(self.revive_meter >= self.revive_meter_target)
 
     def _finish_revive(self, success: bool):
         now = pygame.time.get_ticks()
@@ -468,18 +620,18 @@ class Arena:
             self.pause_started_at = None
         self.revive_deadline = None
         self.revive_prompt_started = None
+        self.revive_meter = 0.0
+
         if success:
             self.player_lives = min(self.max_lives, 2)
             self.samurai = Samurai()
             self.knight = Knight()
             self._apply_level_scaling()
             self.pending_knight_attack = False
-            self.state = "battle"
-            self.revive_meter = 0.0
             self._set_info("Second wind! Back to the fight.", 2500)
+            self.state = "battle"
             self._begin_battle()
         else:
-            self.revive_meter = 0.0
             self.game_over = True
             self.game_over_reason = "defeat"
             self.state = "defeat"
@@ -590,6 +742,25 @@ class Arena:
         box_rect = box.get_rect(center=(self.screen_width // 2, self.screen_height - 80))
         self.screen.blit(box, box_rect)
 
+    def _wrap_text(self, text: str, font: pygame.font.Font, max_width: int) -> list[str]:
+        if not text:
+            return [""]
+        words = text.split()
+        lines: list[str] = []
+        current = ""
+        for word in words:
+            candidate = (current + " " + word).strip()
+            if current and font.size(candidate)[0] > max_width:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            lines.append(current)
+        if not lines:
+            lines.append("")
+        return lines
+
     def _draw_start_screen(self):
         self.screen.blit(self.background, (0, 0))
         self._draw_lifebars()
@@ -601,7 +772,135 @@ class Arena:
         self.screen.blit(prompt, prompt.get_rect(center=(self.screen_width // 2, self.screen_height // 2)))
         self.screen.blit(hint, hint.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 50)))
 
+    def _draw_challenge_select(self):
+        self.screen.blit(self.background, (0, 0))
+        self.knight.draw(self.screen)
+        self.samurai.draw(self.screen)
+        self._draw_timer()
+        self._draw_lifebars()
+        self._draw_scoreboard()
+
+        panel_w = 780
+        panel_h = 320
+        panel_rect = pygame.Rect(
+            (self.screen_width - panel_w) // 2,
+            (self.screen_height - panel_h) // 2 - 40,
+            panel_w,
+            panel_h,
+        )
+        panel = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        panel.fill((18, 20, 35, 225))
+        self.screen.blit(panel, panel_rect.topleft)
+
+        title = self.small_font.render("Select your challenge", True, (240, 240, 245))
+        self.screen.blit(title, title.get_rect(center=(panel_rect.centerx, panel_rect.top + 40)))
+
+        options = [
+            ("leetcode", "LeetCode Puzzle", "Arrange the code snippets to solve the problem."),
+            ("complexity", "Time Complexity Quiz", "Multiple choice Big-O question."),
+        ]
+        btn_width = panel_w - 80
+        y = panel_rect.top + 90
+        spacing = 26
+        btn_rects: dict[str, pygame.Rect] = {}
+
+        for key, label, desc in options:
+            label_lines = self._wrap_text(label, self.small_font, btn_width - 40)
+            desc_lines = self._wrap_text(desc, self.body_font, btn_width - 40)
+            content_height = len(label_lines) * self.small_font.get_height() + len(desc_lines) * (self.body_font.get_height() + 4)
+            rect_height = content_height + 32
+            rect = pygame.Rect(panel_rect.left + 40, y, btn_width, rect_height)
+            y += rect_height + spacing
+
+            btn_rects[key] = rect
+            pygame.draw.rect(self.screen, (55, 60, 90), rect, border_radius=12)
+            pygame.draw.rect(self.screen, (135, 170, 255), rect, width=3, border_radius=12)
+
+            line_y = rect.y + 12
+            for line in label_lines:
+                surf = self.small_font.render(line, True, (245, 245, 250))
+                self.screen.blit(surf, (rect.x + 20, line_y))
+                line_y += self.small_font.get_height()
+            line_y += 6
+            for line in desc_lines:
+                surf = self.body_font.render(line, True, (210, 210, 220))
+                self.screen.blit(surf, (rect.x + 20, line_y))
+                line_y += self.body_font.get_height() + 4
+
+        self.challenge_select_rects = btn_rects
+
+    def _draw_complexity_quiz(self):
+        self.screen.blit(self.background, (0, 0))
+        self.knight.draw(self.screen)
+        self.samurai.draw(self.screen)
+        self._draw_timer()
+        self._draw_lifebars()
+        self._draw_scoreboard()
+
+        panel_w = 980
+        panel_h = 380
+        panel_rect = pygame.Rect(
+            (self.screen_width - panel_w) // 2,
+            (self.screen_height - panel_h) // 2 - 40,
+            panel_w,
+            panel_h,
+        )
+        panel = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        panel.fill((18, 22, 38, 235))
+        self.screen.blit(panel, panel_rect.topleft)
+
+        header = self.small_font.render("Time Complexity Quiz", True, (240, 240, 245))
+        self.screen.blit(header, (panel_rect.x + 32, panel_rect.y + 24))
+
+        if self.complexity_deadline is not None:
+            remaining = max(0, self.complexity_deadline - pygame.time.get_ticks())
+            seconds = max(0, int((remaining + 999) / 1000))
+            timer_text = f"{seconds:02d}s"
+            timer_color = (255, 120, 120) if seconds <= 10 else (210, 230, 255)
+            timer_surf = self.small_font.render(timer_text, True, timer_color)
+            self.screen.blit(timer_surf, timer_surf.get_rect(topright=(panel_rect.right - 32, panel_rect.y + 24)))
+
+        question = self.complexity_question or {}
+        prompt = question.get("prompt", "")
+        prompt_lines = self._wrap_text(prompt, self.small_font, panel_w - 64)
+
+        y = panel_rect.y + 90
+        for line in prompt_lines:
+            surf = self.small_font.render(line, True, (230, 230, 235))
+            self.screen.blit(surf, (panel_rect.x + 32, y))
+            y += self.small_font.get_height() + 4
+
+        y += 12
+        btn_width = panel_w - 64
+        spacing = 18
+        label_prefix = ["A", "B", "C", "D"]
+        self.complexity_option_rects = []
+
+        options_y = y
+        for idx, option in enumerate(self.complexity_options):
+            label_text = f"{label_prefix[idx]}. {option['text']}"
+            label_lines = self._wrap_text(label_text, self.body_font, btn_width - 32)
+            option_height = len(label_lines) * (self.body_font.get_height() + 2) + 24
+            rect = pygame.Rect(panel_rect.x + 32, options_y, btn_width, option_height)
+            pygame.draw.rect(self.screen, (55, 60, 90), rect, border_radius=10)
+            pygame.draw.rect(self.screen, (135, 170, 255), rect, width=2, border_radius=10)
+            line_y = rect.y + 12
+            for line in label_lines:
+                surf = self.body_font.render(line, True, (240, 240, 250))
+                self.screen.blit(surf, (rect.x + 16, line_y))
+                line_y += self.body_font.get_height() + 2
+            self.complexity_option_rects.append((rect, option))
+            options_y = rect.bottom + spacing
+
+        hint = self.body_font.render("Click an answer or press 1-4", True, (200, 200, 210))
+        self.screen.blit(hint, (panel_rect.x + 32, min(panel_rect.bottom - 40, options_y)))
     def _draw_revive_prompt(self):
+        self.screen.blit(self.background, (0, 0))
+        self.knight.draw(self.screen)
+        self.samurai.draw(self.screen)
+        self._draw_timer()
+        self._draw_lifebars()
+        self._draw_scoreboard()
         overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
         overlay.fill((10, 10, 20, 210))
         self.screen.blit(overlay, (0, 0))
@@ -613,8 +912,13 @@ class Arena:
         self.screen.blit(option, option.get_rect(center=(self.screen_width // 2, self.screen_height // 2)))
         self.screen.blit(concede, concede.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 40)))
         self.screen.blit(note, note.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 90)))
-
     def _draw_revive_mash(self):
+        self.screen.blit(self.background, (0, 0))
+        self.knight.draw(self.screen)
+        self.samurai.draw(self.screen)
+        self._draw_timer()
+        self._draw_lifebars()
+        self._draw_scoreboard()
         overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
         overlay.fill((20, 10, 30, 210))
         self.screen.blit(overlay, (0, 0))
@@ -622,8 +926,8 @@ class Arena:
         countdown_value = 0
         if self.revive_deadline is not None:
             remaining = max(0, self.revive_deadline - pygame.time.get_ticks())
-            countdown_value = max(0, math.ceil(remaining / 1000))
-        countdown_surf = self.font.render(str(countdown_value) if countdown_value else "0", True, (255, 255, 255))
+            countdown_value = max(0, int((remaining + 999) / 1000))
+        countdown_surf = self.font.render(str(countdown_value), True, (255, 255, 255))
         bar_width = 420
         bar_height = 30
         progress = 0 if self.revive_meter_target == 0 else self.revive_meter / self.revive_meter_target
@@ -636,26 +940,17 @@ class Arena:
         self.screen.blit(title, title.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 60)))
         self.screen.blit(countdown_surf, countdown_surf.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 5)))
         self.screen.blit(prompt, prompt.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 70)))
-
     def draw(self):
         if self.state == "start":
             self._draw_start_screen()
+        elif self.state == "challenge_select":
+            self._draw_challenge_select()
         elif self.state == "revive_prompt":
-            self.screen.blit(self.background, (0, 0))
-            self.knight.draw(self.screen)
-            self.samurai.draw(self.screen)
-            self._draw_timer()
-            self._draw_lifebars()
-            self._draw_scoreboard()
             self._draw_revive_prompt()
         elif self.state == "revive_mash":
-            self.screen.blit(self.background, (0, 0))
-            self.knight.draw(self.screen)
-            self.samurai.draw(self.screen)
-            self._draw_timer()
-            self._draw_lifebars()
-            self._draw_scoreboard()
             self._draw_revive_mash()
+        elif self.state == "complexity_quiz":
+            self._draw_complexity_quiz()
         elif self.state == "challenge" and self.challenge:
             self.challenge.draw()
             self._draw_scoreboard()
@@ -690,6 +985,8 @@ class Arena:
                 self._update_battle()
             elif self.state == "revive_mash":
                 self._update_revive_mash()
+            elif self.state == "complexity_quiz":
+                self._update_complexity_quiz()
             elif self.state in {"victory", "defeat"}:
                 if self.info_message and pygame.time.get_ticks() >= self.info_until_ms:
                     self.info_message = None
