@@ -75,11 +75,23 @@ class Arena:
 
     def check_collision(self):
         if self.knight.get_rect().colliderect(self.samurai.get_rect()):
+            # lock movement into each other 
             self.samurai.can_move_right=False
             self.knight.can_move_left=False
+            # allow damage while in contact 
+            self.samurai.can_take_damage= True
+            self.knight.can_take_damage= True
+            
+            if self.samurai.is_hit_active() and not self.samurai.attack_hit_applied:
+                # self.knight.take_damage() - implement knight take damage
+                self.samurai.attack_hit_applied = True
+            
         else:
             self.samurai.can_move_right=True
             self.knight.can_move_left=True
+            self.will_take_damage = True
+            self.samurai.can_take_damage= False
+            self.knight.can_take_damage= False 
     
     def draw(self):
         self.screen.blit(self.background, (0, 0))

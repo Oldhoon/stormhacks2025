@@ -10,6 +10,7 @@ SCALE = 3
 COLOR = (0,0,0)
 ANIMATION_COOLDOWN = 200
 MOVE_BY = 5
+DAMAGE_AMOUNT = 100 # Amount of damage taken when hurt
 
 class Knight:
 
@@ -62,20 +63,15 @@ class Knight:
         self.can_move_left = True
         self.can_move_right = True
         self.hp = MAX_HP
-        self.dead_time = None
-        self.speed = MOVE_BY // 2
+        # self.dead_time = None
+        # self.speed = MOVE_BY // 2
+        
+        # combat related fields
         self.alive = True
+        self.attack_hit_applied = False
+        self.can_take_damage = False
         self.is_attacking = False
 
-    def take_damage(self, amount):
-        if self.alive:
-            self.hp -= amount
-            if self.hp <= 0:
-                self.hp = 0
-                self.alive = False
-                self.dead()
-                self.dead_time = pygame.time.get_ticks()
-        self.position = (self.position[0] - 5, self.position[1])
     
     def revive(self):
         self.hp = MAX_HP // 2
@@ -102,10 +98,6 @@ class Knight:
     #     else:
     #         self.attack()
             
-        
-    def is_alive(self):
-        return self.alive
-
 
 
     def update(self):
@@ -137,6 +129,7 @@ class Knight:
             if self.is_attacking:
                 return
             self.is_attacking = True
+            self.attack_hit_applied = False
             
         """Change animation type"""
         if name in self.animations and name != self.animation_type:
@@ -144,6 +137,18 @@ class Knight:
             self.frame_index = 0
             self.last_update = pygame.time.get_ticks()
             self.image = self.animations[self.animation_type][self.frame_index]
+            
+    def take_damage(self):
+        if self.can_take_damage and not self.is_attacking:
+            self.hp -= DAMAGE_AMOUNT
+            if self.hp <= 0:
+                self.hp = 0
+                self.alive = False
+                self.set_animation("dead")
+           
+        
+    def is_hit_active(self) -> bool:
+        return self.is_attacking and 1 <= self.frame_index <= 4
 
     def idle(self):
         self.set_animation("idle")
