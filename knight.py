@@ -5,7 +5,7 @@ FW = 96
 FH = 84
 MAX_HP =100
 START_X = 800
-START_Y = 430# top left corner for now #TODO
+START_Y = 430
 SCALE = 3
 COLOR = (0,0,0)
 ANIMATION_COOLDOWN = 200
@@ -20,6 +20,11 @@ class Knight:
         self.death_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/DEATH.png").convert_alpha()
         self.idle_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/IDLE.png").convert_alpha()
         self.walk_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/WALK.png").convert_alpha()
+
+        self.attack1_sheet = pygame.transform.flip(self.attack1_sheet, True, False)
+        self.death_sheet = pygame.transform.flip(self.death_sheet, True, False)
+        self.idle_sheet = pygame.transform.flip(self.idle_sheet, True, False)
+        self.walk_sheet = pygame.transform.flip(self.walk_sheet, True, False)
 
         ss_attack = spritesheet.SpriteSheet(self.attack1_sheet)
         ss_death = spritesheet.SpriteSheet(self.death_sheet)
@@ -47,7 +52,9 @@ class Knight:
         self.last_update = pygame.time.get_ticks()
 
         #required sprite fields
-        self.image = self.animations[self.animation_type][self.frame_index]
+        frame = self.animations[self.animation_type][self.frame_index]
+        self.image = frame
+
 
     def update(self):
         now = pygame.time.get_ticks()
@@ -57,7 +64,7 @@ class Knight:
             if frames:
                 self.frame_index = (self.frame_index + 1) % len(frames)
                 frame = frames[self.frame_index]
-                self.image = pygame.transform.flip(frame, True, False)
+                self.image = frame
 
 
     def draw(self, screen):
@@ -97,3 +104,4 @@ class Knight:
             self.move_right()
         if inp.attack:
             self.attack()
+
