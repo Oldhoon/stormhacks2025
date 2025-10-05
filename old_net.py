@@ -28,7 +28,7 @@ class Arena:
         self.background = pygame.image.load(r"assets/cyberpunk-street-files/cyberpunk-street-files/Assets/Version 1/PNG/cyberpunk-street.png").convert()
         self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
         
-        self.knight = Knight()
+        # self.knight = Knight()
         
         self.running = True
         
@@ -41,14 +41,11 @@ class Arena:
                 self.running = False
                 pygame.quit()
                 sys.exit()
-    
-    def update(self):
-        self.knight.update()
+
     
     def draw(self):
         self.screen.blit(self.background, (0, 0))
         
-        self.knight.draw(self.screen)
         
         pygame.display.update()
         pygame.display.flip()
@@ -77,11 +74,14 @@ class Arena:
                 time.sleep(0.001)
             
             
+    def update():
+        pass
+    
     def run(self):
         threading.Thread(target=self.run_listener).start()
         while self.running:
             self.handle_events()
-            self.update()
+            # self.update()
             self.draw() 
             self.clock.tick(self.fps)
 
