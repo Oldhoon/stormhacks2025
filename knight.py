@@ -14,7 +14,7 @@ MOVE_BY = 5
 HEALTH_FW = 32  # Health frame width
 HEALTH_FH = 32  # Health frame height
 HEALTH_SCALE = 2  # Health scale
-HEALTH_STYLE = 4  # 0=hearts, 1=blue, 2=green, 3=gray, 4=pink, 5=purple, 6=orange dots, etc.
+HEALTH_STYLE = 3  # 0=hearts, 1=blue, 2=green, 3=gray, 4=pink, 5=purple, 6=orange dots, etc.
 HEALTH_DISPLAY_SCALE = 1.5
 DAMAGE_AMOUNT = 100 # Amount of damage taken when hurt
 
@@ -90,10 +90,10 @@ class Knight:
         self.is_attacking = False
 
     
-    def revive(self):
-        self.hp = MAX_HP // 2
-        self.alive = True
-        self.idle()
+    # def revive(self):
+    #     self.hp = MAX_HP // 2
+    #     self.alive = True
+    #     self.idle()
         
     # def ai_update(self, samurai):
     #     if not self.alive:

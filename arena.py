@@ -84,7 +84,7 @@ class Arena:
             self.knight.can_take_damage= True
             
             if self.samurai.is_hit_active() and not self.samurai.attack_hit_applied:
-                # self.knight.take_damage() - implement knight take damage
+                self.knight.take_damage()
                 self.samurai.attack_hit_applied = True
             
         else:
@@ -107,10 +107,10 @@ class Arena:
         while self.running:
             self.handle_events()
             self.update()
-            self.draw()
-            self.clock.tick(self.fps)
             self.check_collision()
             self.check_screen_collision()
+            self.draw()
+            self.clock.tick(self.fps)
 
 
 Arena().run()
