@@ -14,7 +14,7 @@ MOVE_BY = 5
 HEALTH_FW = 48  # Health frame width
 HEALTH_FH = 16  # Health frame height
 HEALTH_SCALE = 2  # Health scale
-HEALTH_STYLE = 0  # 0=blue, 1=green, 2=gray, 3=pink, 4=purple, 5=red/orange
+HEALTH_STYLE = 3  # 0=hearts, 1=blue, 2=green, 3=gray, 4=pink, 5=purple, 6=orange dots, etc.
 HEALTH_DISPLAY_SCALE = 1.5
 DAMAGE_AMOUNT = 100 # Amount of damage taken when hurt
 
@@ -90,10 +90,10 @@ class Knight:
         self.is_attacking = False
 
     
-    def revive(self):
-        self.hp = MAX_HP // 2
-        self.alive = True
-        self.idle()
+    # def revive(self):
+    #     self.hp = MAX_HP // 2
+    #     self.alive = True
+    #     self.idle()
         
     # def ai_update(self, samurai):
     #     if not self.alive:
@@ -135,8 +135,12 @@ class Knight:
             self.last_update = now
             frames = self.animations[self.animation_type]
             if frames:
-                self.frame_index += 1
-                if self.animation_type == "attack":
+                if self.animation_type == "dead":
+                # advance until last frame, then hold
+                    if self.frame_index < len(frames) - 1:
+                        self.frame_index += 1
+                elif self.animation_type == "attack":
+                    self.frame_index += 1
                     if self.frame_index >= len(frames):
                         self.is_attacking = False
                         self.frame_index = 0
@@ -213,3 +217,5 @@ class Knight:
 
     def get_rect(self):
         return self.rect
+    
+
