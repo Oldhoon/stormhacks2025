@@ -135,8 +135,12 @@ class Knight:
             self.last_update = now
             frames = self.animations[self.animation_type]
             if frames:
-                self.frame_index += 1
-                if self.animation_type == "attack":
+                if self.animation_type == "dead":
+                # advance until last frame, then hold
+                    if self.frame_index < len(frames) - 1:
+                        self.frame_index += 1
+                elif self.animation_type == "attack":
+                    self.frame_index += 1
                     if self.frame_index >= len(frames):
                         self.is_attacking = False
                         self.frame_index = 0
@@ -213,3 +217,5 @@ class Knight:
 
     def get_rect(self):
         return self.rect
+    
+
