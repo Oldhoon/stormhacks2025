@@ -60,6 +60,7 @@ class Samurai:
         self.position = (START_X,START_Y)
         self.last_update = pg.time.get_ticks()
 
+
     def update(self):
         """Update samurai state"""
         now = pg.time.get_ticks()
@@ -70,6 +71,7 @@ class Samurai:
             frames = self.animations[self.animation_type]
             if frames:
                 self.frame_index = (self.frame_index + 1) % len(frames)
+
 
     def draw(self, screen):
         """Draw samurai on screen"""

@@ -1,15 +1,15 @@
 import pygame
 import spritesheet
-from samurai import MOVE_BY
 
 FW = 96
 FH = 84
 MAX_HP =100
-START_X = 200
-START_Y = 300# top left corner for now #TODO
+START_X = 800
+START_Y = 430# top left corner for now #TODO
 SCALE = 3
 COLOR = (0,0,0)
 ANIMATION_COOLDOWN = 200
+MOVE_BY = 5
 
 class Knight:
 
@@ -48,7 +48,6 @@ class Knight:
 
         #required sprite fields
         self.image = self.animations[self.animation_type][self.frame_index]
-        self.rect = self.image.get_rect()
 
     def update(self):
         now = pygame.time.get_ticks()
@@ -57,11 +56,13 @@ class Knight:
             frames = self.animations[self.animation_type]
             if frames:
                 self.frame_index = (self.frame_index + 1) % len(frames)
-                self.image = frames[self.frame_index]
+                frame = frames[self.frame_index]
+                self.image = pygame.transform.flip(frame, True, False)
+
 
     def draw(self, screen):
-        animation_list = self.animations[self.animation_type]
-        screen.blit(animation_list[self.frame_index], self.position)
+        # Always draw the flipped image
+        screen.blit(self.image, self.position)
 
     def set_animation(self, name):
         if name in self.animations and name != self.animation_type:
@@ -75,11 +76,12 @@ class Knight:
 
     def move_right(self):
         self.set_animation("walk")
-        self.rect.x += MOVE_BY
+        self.position = (self.position[0] + MOVE_BY, self.position[1])
+
 
     def move_left(self):
         self.set_animation("walk")
-        self.rect.x -= MOVE_BY
+        self.position = (self.position[0] - MOVE_BY, self.position[1])
 
     def attack(self):
         self.set_animation("attack")
