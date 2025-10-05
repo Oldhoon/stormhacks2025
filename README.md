@@ -16,3 +16,4 @@ hurt - 96 x 84
 Samurai: https://xzany.itch.io/samurai-2d-pixel-art
 Knight: https://xzany.itch.io/free-knight-2d-pixel-art
 Background: https://ansimuz.itch.io/cyberpunk-street-environment
+Health bar: https://bdragon1727.itch.io/basic-pixel-health-bar-and-scroll-bar
