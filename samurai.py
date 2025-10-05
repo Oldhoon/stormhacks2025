@@ -109,7 +109,7 @@ class Samurai:
         
     def is_hit_active(self) -> bool:
         # Only during attack frames 2..4, 
-        return self.is_attacking and 2 <= self.frame_index <= 4
+        return self.is_attacking and 2 <= self.frame_index <= 6
 
 
     def set_animation(self, animation_type):
