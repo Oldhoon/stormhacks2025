@@ -15,13 +15,21 @@ class PlayerInput:
 TIMER = 180000  # 3 minutes in milliseconds 
 
 class Arena:
-    def __init__(self):
-        pygame.init()
-        
-        self.screen_width = 1280
-        self.screen_height = 720
-        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-        pygame.display.set_caption("Leetcode Arena")
+    def __init__(self, screen=None):
+        # Only init pygame and create display if no screen provided
+        if screen is None:
+            pygame.init()
+            self.screen_width = 1280
+            self.screen_height = 720
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+            pygame.display.set_caption("Leetcode Arena")
+        else:
+            # Use provided surface
+            if not pygame.get_init():
+                pygame.init()
+            self.screen = screen
+            self.screen_width = screen.get_width()
+            self.screen_height = screen.get_height()
         
         self.clock = pygame.time.Clock()
         self.fps = 60
@@ -56,7 +64,9 @@ class Arena:
         return minutes, seconds
     
     def handle_events(self):
-        
+        """
+        Handle events for the arena.
+        """
         p1_attack_once = False
         
         for event in pygame.event.get():
@@ -80,13 +90,12 @@ class Arena:
             if self.game_over:
                 return  # Don't process movement if game is over
 
-            
-
+        # Process continuous key state
         keys = pygame.key.get_pressed()
         p1 = PlayerInput(
             left=keys[pygame.K_a],
             right=keys[pygame.K_d],
-            attack=p1_attack_once
+            attack=p1_attack_once or keys[pygame.K_SPACE]  # Support both event and key state
         )
         self.samurai.apply_input(p1)
     
@@ -163,9 +172,6 @@ class Arena:
             restart_text = self.small_font.render("Press R to Restart or ESC to Quit", True, (255, 255, 255))
             restart_rect = restart_text.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 80))
             self.screen.blit(restart_text, restart_rect)
-
-        pygame.display.update()
-        pygame.display.flip()
     
     def run(self):
         while self.running:
@@ -175,5 +181,5 @@ class Arena:
             self.draw()
             self.clock.tick(self.fps)
 
-
-Arena().run()
+if __name__ == "__main__":
+    Arena().run()
