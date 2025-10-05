@@ -102,6 +102,7 @@ class Knight:
     def revive(self):
         self.hp = MAX_HP // 2
         self.alive = True
+        self.dead_time = None
         self.idle()
         
     def ai_update(self, samurai):
