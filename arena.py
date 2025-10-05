@@ -68,6 +68,7 @@ class Arena:
         # self.knight.ai_update(self.samurai)
         self.knight.update()
         self.samurai.update()
+        
 
     def check_screen_collision(self):
         samurai_rect = self.samurai.get_rect()

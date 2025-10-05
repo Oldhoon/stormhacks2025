@@ -11,6 +11,12 @@ COLOR = (0,0,0)
 ANIMATION_COOLDOWN = 200
 MOVE_BY = 5
 
+HEALTH_FW = 32  # Health frame width
+HEALTH_FH = 32  # Health frame height
+HEALTH_SCALE = 2  # Health scale
+HEALTH_STYLE = 4  # 0=hearts, 1=blue, 2=green, 3=gray, 4=pink, 5=purple, 6=orange dots, etc.
+HEALTH_DISPLAY_SCALE = 1.5
+
 class Knight:
 
     def __init__(self):
@@ -20,6 +26,10 @@ class Knight:
         self.death_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/DEATH.png").convert_alpha()
         self.idle_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/IDLE.png").convert_alpha()
         self.walk_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/WALK.png").convert_alpha()
+        
+        health_sheet_full = pygame.image.load(r"assets/health.png").convert_alpha()
+        y_start = HEALTH_STYLE * 24
+        self.health_sheet = health_sheet_full.subsurface((0, y_start, 256, 24)).copy()
 
         self.attack1_sheet = pygame.transform.flip(self.attack1_sheet, True, False)
         self.death_sheet = pygame.transform.flip(self.death_sheet, True, False)
@@ -30,6 +40,7 @@ class Knight:
         ss_death = spritesheet.SpriteSheet(self.death_sheet)
         ss_idle = spritesheet.SpriteSheet(self.idle_sheet)
         ss_walk = spritesheet.SpriteSheet(self.walk_sheet)
+        ss_health = spritesheet.SpriteSheet(self.health_sheet)
 
 
         def slice_all(ss, sheet):
@@ -39,12 +50,18 @@ class Knight:
                 frames.append(ss.get_image(i, FW, FH, SCALE, COLOR))
             return frames
     
-        
+        def slice_health(ss, sheet):
+            frames = []
+            count = sheet.get_width() // HEALTH_FW
+            for i in range(count):
+                frames.append(ss.get_image(i, HEALTH_FW, HEALTH_FH, HEALTH_SCALE, COLOR))
+            return frames
 
         self.animations = {
             "attack": slice_all(ss_attack, self.attack1_sheet),
             "dead": slice_all(ss_death, self.death_sheet),
             "idle":slice_all(ss_idle, self.idle_sheet),
+            "health":slice_health(ss_health, self.health_sheet),
             "walk":slice_all(ss_walk, self.walk_sheet)
         }
         self.animations["walk"].reverse()
@@ -104,6 +121,16 @@ class Knight:
     def is_alive(self):
         return self.alive
 
+    def get_health_frame_index(self):
+        if len(self.animations["health"]) == 0:
+            return 0
+        
+        health_percent = self.hp / MAX_HP
+        max_index = len(self.animations["health"]) - 1
+        
+        # Map health percentage to frame index
+        frame_index = max_index - int(health_percent * max_index)
+        return min(frame_index, max_index)
 
 
     def update(self):
@@ -118,9 +145,22 @@ class Knight:
         self.rect.midleft = self.position
 
 
+
     def draw(self, screen):
         # Always draw the flipped image
         screen.blit(self.image, self.position)
+        if self.animations["health"]:
+            health_index = self.get_health_frame_index()
+            health_frame = self.animations["health"][health_index]            
+            original_width = health_frame.get_width()
+            original_height = health_frame.get_height()
+            new_width = int(original_width * HEALTH_DISPLAY_SCALE)
+            new_height = int(original_height * HEALTH_DISPLAY_SCALE)
+            health_frame = pygame.transform.scale(health_frame, (new_width, new_height))
+            # Position health bar above knight (adjust these values)
+            health_x = self.position[0] + 80  # Move horizontally
+            health_y = self.position[1] - 20  # Closer to head (increase negative to go higher)
+            screen.blit(health_frame, (health_x, health_y))
 
     def set_animation(self, name):
         if name in self.animations and name != self.animation_type:
