@@ -28,8 +28,8 @@ class Arena:
         self.background = pygame.image.load(r"assets/cyberpunk-street-files/cyberpunk-street-files/Assets/Version 1/PNG/cyberpunk-street.png").convert()
         self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
         
-        # self.knight = Knight()
         self.samurai = Samurai()
+        self.knight = Knight()
         
         self.running = True
     
@@ -46,17 +46,23 @@ class Arena:
             right=keys[pygame.K_RIGHT],
             attack=keys[pygame.K_SPACE]
         )
+        p2 = PlayerInput(
+            left=keys[pygame.K_a],
+            right=keys[pygame.K_d],
+            attack=keys[pygame.K_w]
+        )
         self.samurai.apply_input(p1)
+        self.knight.apply_input(p2)
     
     def update(self):
-        # self.knight.update()
+        self.knight.update()
         self.samurai.update()
 
     
     def draw(self):
         self.screen.blit(self.background, (0, 0))
         
-        # self.knight.draw(self.screen)
+        self.knight.draw(self.screen)
         self.samurai.draw(self.screen)
         
         pygame.display.update()
