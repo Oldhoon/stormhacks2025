@@ -160,9 +160,9 @@ class Arena:
                         self._begin_battle()
                     continue
                 if self.state == "challenge_select":
-                    if event.key in (K_l, K_L, K_1, K_KP1):
+                    if event.key in (K_l, K_1, K_KP1):
                         self._choose_challenge("leetcode")
-                    elif event.key in (K_t, K_T, K_2, K_KP2):
+                    elif event.key in (K_t, K_2, K_KP2):
                         self._choose_challenge("complexity")
                     continue
                 if self.state == "revive_prompt":
