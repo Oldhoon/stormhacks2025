@@ -5,12 +5,33 @@ import struct
 import time
 
 class Server:
-    def __init__(self, host = '127.0.0.1', port=67695):
+    def __init__(self, host = '127.0.0.1', port=65469):
         self.host = host
         self.port = port
+        self.null_char = 'n'
+        self.winner = self.null_char
         
         self.kill = False
         self.thread_count = 0
+        self.players = []
+        
+    def serialize(self):
+        return struct.pack()
+    
+    def run_listener(self, conn): 
+        self.thread_count += 1
+        conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+        conn.settimeout(1)
+        while conn:
+            while not self.kill:
+                try:
+                    data = conn.recv(4096)
+                    if len(data):
+                        target_space = struct.unpack_from('B', data, 0)[0]
+                        # self.place(conn, target_space)
+                except socket.timeout:
+                    pass
+        self.thread_count -= 1
         
     def connection_listen_loop(self):
         self.thread_count += 1

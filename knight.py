@@ -1,5 +1,6 @@
 import pygame
 import sys
+import spritesheet
 from pygame.locals import *
 
 class Knight:
@@ -20,7 +21,7 @@ class Knight:
         
     def update(self):
         """Update knight state"""
-        # TODO: Add animation frame logic
+
         pass
     
     def draw(self, screen):
@@ -40,3 +41,4 @@ class Knight:
         }
         if animation_type in animations:
             self.current_sheet = animations[animation_type]
+

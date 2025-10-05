@@ -1,18 +1,90 @@
-import pygame
-FRAME_WIDTH = 96
-FRAME_HEIGHT = 84
+import pygame.time
 
-samurai_sheet = pygame.image.load("assets/FREE_Samurai 2D Pixel Art v1.2/Sprites/IDLE.png")
+import spritesheet
+import pygame as pg
+import spritesheet
 
+FW = 96
+FH = 84
+MAX_HP =100
+START_X = 0
+START_Y = 300# top left corner for now #TODO
+SCALE = 4
+COLOR = (0,0,0)
+MOVE_BY = 5
 
-def get_sprite(sheet, x, y, width, height):
-    sprite = pygame.Surface((width, height), pygame.SRCALPHA)
-    sprite.blit(sheet, (0,0), (x,y,width,height))
-    return sprite
+animation_cooldown= 200
 
-# animation frames
-frames = []
+animation_steps = [7, 4, 10 ,16]
+ATTACK_STEPS = 7
+HURT_STEPS = 4
+IDLE_STEPS = 10
+RUN_STEPS = 16
+class Samurai:
 
-for i in range(10):
-    sp = get_sprite(samurai_sheet, i * FRAME_WIDTH, 0, FRAME_WIDTH, FRAME_HEIGHT)
-    frames.append(sp)
+    def __init__(self):
+        # Load sprite sheets
+        self.attack_sheet= pg.image.load('assets/FREE_Samurai 2D Pixel Art v1.2/Sprites/ATTACK 1.png').convert_alpha()
+        self.hurt_sheet = pg.image.load('assets/FREE_Samurai 2D Pixel Art v1.2/Sprites/HURT.png').convert_alpha()
+        self.idle_sheet = pg.image.load('assets/FREE_Samurai 2D Pixel Art v1.2/Sprites/IDLE.png').convert_alpha()
+        self.run_sheet = pg.image.load('assets/FREE_Samurai 2D Pixel Art v1.2/Sprites/RUN.png').convert_alpha()
+
+        spritesheet_attack = spritesheet.SpriteSheet(self.attack_sheet)
+        spritesheet_hurt = spritesheet.SpriteSheet(self.hurt_sheet)
+        spritesheet_idle = spritesheet.SpriteSheet(self.idle_sheet)
+        spritesheet_run = spritesheet.SpriteSheet(self.run_sheet)
+
+        self.attack_list = []
+        self.hurt_list = []
+        self.idle_list = []
+        self.run_list = []
+        # attack
+        for i in range(animation_steps[0]):
+            self.attack_list.append(spritesheet_attack.get_image(i, FW, FH, SCALE, COLOR))
+        # hurt
+        for i in range(animation_steps[1]):
+            self.hurt_list.append(spritesheet_hurt.get_image(i, FW, FH, SCALE, COLOR))
+        # idle
+        for i in range(animation_steps[2]):
+            self.idle_list.append(spritesheet_idle.get_image(i, FW, FH, SCALE, COLOR))
+        # run
+        for i in range(animation_steps[3]):
+            self.run_list.append(spritesheet_run.get_image(i, FW,FH,SCALE,COLOR))
+
+        self.animations = {
+            "attack": self.attack_list,
+            "hurt": self.hurt_list,
+            "idle": self.idle_list,
+            "run": self.run_list
+        }
+
+        self.animation_type = "idle"
+        self.frame_index = 0
+        self.position = (START_X,START_Y)
+
+    def update(self):
+        """Update samurai state"""
+        self.frame_index = (self.frame_index + 1) % (len(self.animations[self.animation_type]) - 1)
+        pass
+
+    def draw(self, screen):
+        """Draw samurai on screen"""
+        animation_list = self.animations[self.animation_type]
+        screen.blit(animation_list[self.frame_index], self.position)
+
+    def set_animation(self, animation_type):
+        """Change animation type"""
+        if animation_type in self.animations:
+            self.animation_type = self.animations[animation_type]
+            self.frame_index=0
+
+    def idle(self):
+        self.set_animation("idle")
+
+    def move_right(self):
+        self.set_animation("run")
+        self.position = (self.position[0] + MOVE_BY, self.position[1])
+
+    def move_left(self):
+        self.set_animation("run")
+        self.position = (self.position[0] - MOVE_BY, self.position[1])

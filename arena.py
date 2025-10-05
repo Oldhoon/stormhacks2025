@@ -1,5 +1,6 @@
 import pygame
 import sys
+from samurai import Samurai
 from pygame.locals import *
 from knight import Knight
 
@@ -14,12 +15,13 @@ class Arena:
         
         self.clock = pygame.time.Clock()
         self.fps = 60
-        self.frames = self.fps / 12
+        self.frames = self.fps / 10
         
         self.background = pygame.image.load(r"assets/cyberpunk-street-files/cyberpunk-street-files/Assets/Version 1/PNG/cyberpunk-street.png").convert()
         self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
         
-        self.knight = Knight()
+        # self.knight = Knight()
+        self.samurai = Samurai()
         
         self.running = True
     
@@ -31,12 +33,15 @@ class Arena:
                 sys.exit()
     
     def update(self):
-        self.knight.update()
+        # self.knight.update()
+        self.samurai.update()
+
     
     def draw(self):
         self.screen.blit(self.background, (0, 0))
         
-        self.knight.draw(self.screen)
+        # self.knight.draw(self.screen)
+        self.samurai.draw(self.screen)
         
         pygame.display.update()
         pygame.display.flip()
