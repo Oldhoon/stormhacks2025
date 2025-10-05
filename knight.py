@@ -11,10 +11,10 @@ COLOR = (0,0,0)
 ANIMATION_COOLDOWN = 200
 MOVE_BY = 5
 
-HEALTH_FW = 32  # Health frame width
-HEALTH_FH = 32  # Health frame height
+HEALTH_FW = 48  # Health frame width
+HEALTH_FH = 16  # Health frame height
 HEALTH_SCALE = 2  # Health scale
-HEALTH_STYLE = 4  # 0=hearts, 1=blue, 2=green, 3=gray, 4=pink, 5=purple, 6=orange dots, etc.
+HEALTH_STYLE = 0  # 0=blue, 1=green, 2=gray, 3=pink, 4=purple, 5=red/orange
 HEALTH_DISPLAY_SCALE = 1.5
 DAMAGE_AMOUNT = 100 # Amount of damage taken when hurt
 
@@ -29,8 +29,8 @@ class Knight:
         self.walk_sheet = pygame.image.load(r"assets/Knight 2D Pixel Art/Sprites/without_outline/WALK.png").convert_alpha()
     
         health_sheet_full = pygame.image.load(r"assets/health.png").convert_alpha()
-        y_start = HEALTH_STYLE * 24
-        self.health_sheet = health_sheet_full.subsurface((0, y_start, 256, 24)).copy()
+        y_start = 16 + (HEALTH_STYLE * 16)  # Skip first row (hearts), start at row 1
+        self.health_sheet = health_sheet_full.subsurface((0, y_start, 256, 16)).copy()
 
         self.attack1_sheet = pygame.transform.flip(self.attack1_sheet, True, False)
         self.death_sheet = pygame.transform.flip(self.death_sheet, True, False)
