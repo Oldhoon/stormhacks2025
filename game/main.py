@@ -1,18 +1,13 @@
-# game/main.py
-import queue
 import pygame
-
-# local imports that work both as module or script
 try:
     from .config import WIDTH, HEIGHT, BG, FG, MUTED, ACCENT, ERR, PADDING, LEFT_W
-    from .ui.utils import worker
     from .ui.problem_panel import ProblemPanel
     from .ui.snippet_board import SnippetBoard
 except ImportError:
     from config import WIDTH, HEIGHT, BG, FG, MUTED, ACCENT, ERR, PADDING, LEFT_W
-    from ui.utils import worker
     from ui.problem_panel import ProblemPanel
     from ui.snippet_board import SnippetBoard
+
 
 # Hardcoded "Two Sum" for demo
 TWO_SUM_TEXT = """Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.
@@ -37,6 +32,7 @@ Constraints:
 Only one valid answer exists.
 Follow-up: Can you come up with an algorithm that is less than O(n^2) time complexity?"""
 
+
 def hardcoded_meta(slug: str):
     if slug == "two-sum":
         return {
@@ -50,9 +46,10 @@ def hardcoded_meta(slug: str):
         }
     return None
 
+
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED | pygame.DOUBLEBUF, vsync=1)
     pygame.display.set_caption("Pygame — Problems")
     clock = pygame.time.Clock()
 
@@ -65,8 +62,9 @@ def main():
     left_rect  = pygame.Rect(32, 90, LEFT_W - PADDING * 2, HEIGHT - 120)
 
     # components
-    problem = ProblemPanel(right_rect, fonts=(big, font, mono))
-    board   = SnippetBoard(left_rect, fonts=(font, big, mono))
+    problem = ProblemPanel(left_rect, fonts=(big, font, mono))
+    board   = SnippetBoard(right_rect, fonts=(font, big, mono))
+
     board.set_lines([
         "def twoSum(nums, target):",
         "    seen = {}",
@@ -79,20 +77,22 @@ def main():
 
     # state
     last_action = "Press [P] to load Two Sum • [Esc] quit"
-    last_verdict = ""
 
     running = True
     while running:
+        dt = clock.tick(120) / 1000.0  # higher cap + per-frame dt
+
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
-            if e.type == pygame.KEYDOWN:
+            elif e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
                     running = False
                 elif e.key == pygame.K_p:
                     meta = hardcoded_meta("two-sum")
-                    problem.set_meta(meta)
-                    last_action = f"Loaded ✓ {meta['title']} [{meta['difficulty']}]"
+                    if meta:
+                        problem.set_meta(meta)
+                        last_action = f"Loaded ✓ {meta['title']} [{meta['difficulty']}]"
 
             # delegate events
             problem.handle_event(e)
@@ -110,6 +110,9 @@ def main():
                 ]),
             )
 
+        # per-frame updates (smooth dragging)
+        board.update(dt)
+
         # draw
         screen.fill(BG)
         screen.blit(big.render("Pygame + LeetCode Demo", True, FG), (PADDING, 20))
@@ -119,9 +122,9 @@ def main():
         problem.draw(screen)
 
         pygame.display.flip()
-        clock.tick(60)
 
     pygame.quit()
+
 
 if __name__ == "__main__":
     main()

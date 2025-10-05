@@ -1,4 +1,3 @@
-# game/ui/utils.py
 import threading
 
 def worker(fn, args, outq):

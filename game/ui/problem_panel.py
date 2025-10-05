@@ -1,4 +1,3 @@
-# game/ui/problem_panel.py
 import pygame
 from .utils import measure_wrapped
 from ..config import FG, MUTED, ACCENT
