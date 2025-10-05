@@ -54,21 +54,21 @@ class LeetCodeGame:
         self.mono = pygame.font.SysFont("consolas", 18)
 
         # layout
-        left_rect = pygame.Rect(
+        problem_rect = pygame.Rect(
             self.view_rect.left + 32,
             self.view_rect.top + 90,
             LEFT_W - PADDING * 2,
             HEIGHT - 120,
         )
-        right_rect = pygame.Rect(
+        board_rect = pygame.Rect(
             self.view_rect.left + LEFT_W + PADDING,
             self.view_rect.top + 90,
             WIDTH - LEFT_W - PADDING * 2,
             HEIGHT - 120,
         )
 
-        self.problem_panel = ProblemPanel(right_rect, fonts=(self.big, self.font, self.mono))
-        self.board = SnippetBoard(left_rect, fonts=(self.font, self.big, self.mono))
+        self.problem_panel = ProblemPanel(problem_rect, fonts=(self.big, self.font, self.mono))
+        self.board = SnippetBoard(board_rect, fonts=(self.font, self.big, self.mono))
 
         # state
         self.current_problem = random_problem()
