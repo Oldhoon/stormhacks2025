@@ -66,6 +66,9 @@ class Knight:
             "walk":slice_all(ss_walk, self.walk_sheet)
         }
         self.animations["walk"].reverse()
+        self.animations["dead"].reverse()
+        self.animations["attack"].reverse()
+        self.animations["idle"].reverse()
 
         # Current animation state
         self.animation_type = "idle"
@@ -133,29 +136,35 @@ class Knight:
             self.last_update = now
         if now - self.last_update >= ANIMATION_COOLDOWN:
             self.last_update = now
-            frames = self.animations[self.animation_type]
+
+            current_anim = self.animation_type
+            frames = self.animations[current_anim]
             if frames:
-                if self.animation_type == "dead":
-                # advance until last frame, then hold
+                if current_anim == "dead":
                     if self.frame_index < len(frames) - 1:
                         self.frame_index += 1
-                elif self.animation_type == "attack":
+                elif current_anim == "attack":
                     self.frame_index += 1
                     if self.frame_index >= len(frames):
                         self.is_attacking = False
                         self.frame_index = 0
-                        self.idle()
+                        self._queued_anim = "idle"
                 else:
-                    self.frame_index %= len(frames)
-        self.rect.midleft = self.position
+                    # increment properly for idle/walk
+                    self.frame_index = (self.frame_index + 1) % len(frames)
+
+        if hasattr(self, "_queued_anim"):
+            self.set_animation(self._queued_anim)
+            del self._queued_anim
+
+        # keep image in sync with frame
         self.image = self.animations[self.animation_type][self.frame_index]
-
-
-
+        self.rect.midleft = self.position
 
     def draw(self, screen):
         # Always draw the flipped image
-        screen.blit(self.image, self.position)
+        frame = self.animations[self.animation_type][self.frame_index]
+        screen.blit(frame, self.position)
         if self.animations["health"]:
             health_index = self.get_health_frame_index()
             health_frame = self.animations["health"][health_index]            
@@ -181,7 +190,7 @@ class Knight:
             self.animation_type = name
             self.frame_index = 0
             self.last_update = pygame.time.get_ticks()
-            self.image = self.animations[self.animation_type][self.frame_index]
+            
             
     def take_damage(self):
         if self.can_take_damage and not self.is_attacking:
