@@ -64,6 +64,7 @@ class Knight:
         self.dead_time = None
         self.speed = MOVE_BY // 2
         self.alive = True
+        self.is_attacking = False
 
     def take_damage(self, amount):
         if self.alive:
@@ -108,13 +109,20 @@ class Knight:
 
     def update(self):
         now = pygame.time.get_ticks()
+        if not hasattr(self, "last_update"):
+            self.last_update = now
         if now - self.last_update >= ANIMATION_COOLDOWN:
             self.last_update = now
             frames = self.animations[self.animation_type]
             if frames:
-                self.frame_index = (self.frame_index + 1) % len(frames)
-                frame = frames[self.frame_index]
-                self.image = frame
+                self.frame_index += 1
+                if self.animation_type == "attack":
+                    if self.frame_index >= len(frames):
+                        self.is_attacking = False
+                        self.frame_index = 0
+                        self.idle()
+                else:
+                    self.frame_index %= len(frames)
         self.rect.midleft = self.position
 
 
@@ -123,6 +131,12 @@ class Knight:
         screen.blit(self.image, self.position)
 
     def set_animation(self, name):
+        if name == "attack":
+            if self.is_attacking:
+                return
+            self.is_attacking = True
+            
+        """Change animation type"""
         if name in self.animations and name != self.animation_type:
             self.animation_type = name
             self.frame_index = 0
@@ -151,12 +165,17 @@ class Knight:
 
 
     def apply_input(self, inp):
+        if inp.attack and not self.is_attacking:
+            self.attack()
+            return
+        if self.is_attacking:
+            return
         if inp.left:
             self.move_left()
         if inp.right:
             self.move_right()
-        if inp.attack:
-            self.attack()
+        else:
+            self.idle()
 
     def get_rect(self):
         return self.rect
