@@ -28,6 +28,26 @@ def worker(fn, args, outq):
     except Exception as e:
         outq.put(("err", str(e)))
 
+
+# --- measure wrapped text height (for scrollable panels) ---
+def measure_wrapped(text, font, max_w, line_h=None):
+    if not text:
+        return 0
+    words = text.split()
+    line = ""
+    h = 0
+    lh = line_h or (font.get_height() + 2)
+    for w in words:
+        test = f"{line} {w}".strip()
+        if font.size(test)[0] <= max_w:
+            line = test
+        else:
+            h += lh
+            line = w
+    if line:
+        h += lh
+    return h
+
 def draw_wrapped(surface, text, font, color, x, y, max_w, line_h=None):
     if not text:
         return y
@@ -46,6 +66,125 @@ def draw_wrapped(surface, text, font, color, x, y, max_w, line_h=None):
         surface.blit(font.render(line, True, color), (x, y))
         y += lh
     return y
+
+# --- helpers to split LC plain-text into sections ---
+def split_problem_text(text: str):
+    """Return dict with desc/examples/constraints from LeetCode plain text."""
+    if not text:
+        return {"desc": "", "examples": "", "constraints": ""}
+
+    t = text.replace("\r", "")
+    low = t.lower()
+    cons_i = low.find("constraints:")
+    ex_i = low.find("example")  # first "Example"
+
+    desc = t
+    examples = ""
+    constraints = ""
+
+    if cons_i != -1:
+        constraints = t[cons_i:].strip()
+        desc = t[:cons_i].rstrip()
+
+    if ex_i != -1:
+        end = cons_i if cons_i != -1 else len(t)
+        examples = t[ex_i:end].strip()
+        desc = t[:ex_i].rstrip()
+
+    return {"desc": desc, "examples": examples, "constraints": constraints}
+
+
+def draw_problem_panel(surface, rect, big, font, mono, meta, scroll_y=0):
+    import pygame
+    # panel background
+    pygame.draw.rect(surface, (28, 28, 36), rect, border_radius=12)
+
+    x = rect.x + 12
+    y0 = rect.y + 10
+    inner_w = rect.w - 24
+    viewport_h = rect.h - 20  # padding top/bottom inside the panel
+
+    if not meta:
+        surface.blit(big.render("Load a problem with [P]", True, (200, 200, 210)), (x, y0))
+        return 0  # no content height
+
+    title = meta.get("title") or "Problem"
+    diff  = meta.get("difficulty") or ""
+    sections = split_problem_text(meta.get("text") or "")
+
+    # ---- Measure total content height ----
+    h = 0
+    h += big.get_height()  # title
+    h += (font.get_height() + 2)  # difficulty line
+    h += 8  # gap after difficulty
+    if sections["desc"]:
+        h += measure_wrapped(sections["desc"], mono, inner_w, line_h=mono.get_height() + 2)
+    if sections["examples"]:
+        h += 12 + font.get_height()  # "Examples" header
+        h += measure_wrapped(sections["examples"], mono, inner_w, line_h=mono.get_height() + 2)
+    if sections["constraints"]:
+        h += 12 + font.get_height()  # "Constraints" header
+        h += measure_wrapped(sections["constraints"], mono, inner_w, line_h=mono.get_height() + 2)
+
+    content_h = max(h, viewport_h)
+
+    # ---- Draw into a content surface, then blit a clipped window ----
+    content = pygame.Surface((inner_w, content_h), pygame.SRCALPHA)
+
+    cy = 0
+    content.blit(big.render(title, True, FG), (0, cy)); cy += big.get_height()
+    diff_line = f"Difficulty: {diff}"
+    content.blit(font.render(diff_line, True, MUTED), (0, cy)); cy += (font.get_height() + 2)
+    cy += 8
+
+    def _draw_text_block(txt, fnt):
+        nonlocal cy
+        words = txt.split()
+        line = ""
+        lh = fnt.get_height() + 2
+        for w in words:
+            test = f"{line} {w}".strip()
+            if fnt.size(test)[0] <= inner_w:
+                line = test
+            else:
+                content.blit(fnt.render(line, True, FG), (0, cy))
+                cy += lh
+                line = w
+        if line:
+            content.blit(fnt.render(line, True, FG), (0, cy))
+            cy += lh
+
+    if sections["desc"]:
+        _draw_text_block(sections["desc"], mono)
+
+    if sections["examples"]:
+        cy += 12
+        content.blit(font.render("Examples", True, ACCENT), (0, cy)); cy += font.get_height()
+        _draw_text_block(sections["examples"], mono)
+
+    if sections["constraints"]:
+        cy += 12
+        content.blit(font.render("Constraints", True, ACCENT), (0, cy)); cy += font.get_height()
+        _draw_text_block(sections["constraints"], mono)
+
+    max_scroll = max(0, content_h - viewport_h)
+    scroll_y = max(0, min(scroll_y, max_scroll))
+
+    # Blit clipped viewport
+    view = pygame.Rect(0, scroll_y, inner_w, viewport_h)
+    surface.blit(content, (x, y0), area=view)
+
+    # Simple scrollbar
+    if max_scroll > 0:
+        track = pygame.Rect(rect.right - 8 - 4, y0, 4, viewport_h)
+        pygame.draw.rect(surface, (60, 60, 75), track, border_radius=2)
+        frac = viewport_h / content_h
+        thumb_h = max(24, int(track.h * frac))
+        thumb_y = int(track.y + (track.h - thumb_h) * (scroll_y / max_scroll))
+        thumb = pygame.Rect(track.x, thumb_y, track.w, thumb_h)
+        pygame.draw.rect(surface, ACCENT, thumb, border_radius=2)
+
+    return content_h
 
 # ---------- snippet puzzles for Blocks mode ----------
 SNIPPET_PUZZLES = {
@@ -68,6 +207,42 @@ SNIPPET_PUZZLES = {
     },
     # add more slugs here if you want blocks for them
 }
+
+# ---- Hardcoded meta for quick demo (no API needed) ----
+TWO_SUM_TEXT = """Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.
+
+Example 1:
+Input: nums = [2,7,11,15], target = 9
+Output: [0,1]
+Explanation: Because nums[0] + nums[1] == 9, we return [0, 1].
+
+Example 2:
+Input: nums = [3,2,4], target = 6
+Output: [1,2]
+
+Example 3:
+Input: nums = [3,3], target = 6
+Output: [0,1]
+
+Constraints:
+2 &lt;= nums.length &lt;= 10^4
+-10^9 &lt;= nums[i] &lt;= 10^9
+-10^9 &lt;= target &lt;= 10^9
+Only one valid answer exists.
+Follow-up: Can you come up with an algorithm that is less than O(n^2) time complexity?"""
+
+def hardcoded_meta(slug: str):
+    if slug == "two-sum":
+        return {
+            "id": "1",
+            "slug": "two-sum",
+            "title": "Two Sum",
+            "difficulty": "Easy",
+            "tags": ["Array", "Hash Table"],
+            "url": "https://leetcode.com/problems/two-sum/",
+            "text": TWO_SUM_TEXT,
+        }
+    return None
 
 # ---------- Blocks mode UI ----------
 class _Block:
@@ -376,63 +551,13 @@ class SnippetBoard:
                 self._insert_idx = None
 
     def draw(self, surf):
-        # panels
+        # left panel only; right side is now the Problem panel
         pygame.draw.rect(surf, (28, 28, 36), self.left_rect, border_radius=12)
-        pygame.draw.rect(surf, (28, 28, 36), self.right_rect, border_radius=12)
-        # headers
         surf.blit(self.big.render(self.title, True, FG), (self.left_rect.x + 12, self.left_rect.y + 10))
-        surf.blit(self.big.render("Assemble", True, FG), (self.right_rect.x + 12, self.right_rect.y + 10))
-        surf.blit(self.font.render(self.status, True, MUTED), (self.right_rect.x + 12, self.right_rect.y + 36))
 
-        # palette (ordered lines)
         y_left = self._left_list_top
         for b in self.palette:
             y_left += b.draw(surf, self.left_rect.x + 12, y_left, self.left_rect.w - 24, self.mono, active=False)
-
-        # assemble
-        y_right = self._right_list_top
-        for b in self.assemble:
-            y_right += b.draw(surf, self.right_rect.x + 12, y_right, self.right_rect.w - 24, self.mono, active=False)
-
-        # insertion guide line
-        if self._insert_target == "right" and self._insert_idx is not None:
-            list_w = self.right_rect.w - 24
-            y_line = self._y_for_index(self._insert_idx, self.assemble, self._right_list_top, list_w, self.mono)
-            pygame.draw.line(surf, ACCENT, (self.right_rect.x + 10, y_line), (self.right_rect.right - 10, y_line), 2)
-        elif self._insert_target == "left" and self._insert_idx is not None:
-            list_w = self.left_rect.w - 24
-            y_line = self._y_for_index(self._insert_idx, self.palette, self._left_list_top, list_w, self.mono)
-            pygame.draw.line(surf, ACCENT, (self.left_rect.x + 10, y_line), (self.left_rect.right - 10, y_line), 2)
-
-        # CHECK button
-        pygame.draw.rect(surf, ACCENT, self.btn_rect, border_radius=8)
-        surf.blit(self.big.render("CHECK", True, (10, 10, 15)), (self.btn_rect.x + 14, self.btn_rect.y + 4))
-
-        # RESET button
-        pygame.draw.rect(surf, (45, 45, 55), self.reset_rect, border_radius=8)
-        pygame.draw.rect(surf, ERR, self.reset_rect, 2, border_radius=8)
-        surf.blit(self.big.render("RESET", True, ERR), (self.reset_rect.x + 14, self.reset_rect.y + 4))
-
-        # --- score HUD (only after submission) ---
-        if self.show_score:
-            hud_x = self.right_rect.right - 240
-            hud_y = self.right_rect.y + 8
-
-            def _bar(ypos, label, frac):
-                frac = max(0.0, min(1.0, frac))
-                w, h = 220, 10
-                bg = pygame.Rect(hud_x, ypos, w, h)
-                fg = pygame.Rect(hud_x, ypos, int(w * frac), h)
-                pygame.draw.rect(surf, (60, 60, 75), bg, border_radius=6)
-                pygame.draw.rect(surf, ACCENT, fg, border_radius=6)
-                surf.blit(self.font.render(f"{label}: {int(frac*100)}%", True, MUTED), (hud_x, ypos - 16))
-
-            _bar(hud_y + 20, "Build", self.last_build)
-            _bar(hud_y + 44, "Run",   self.last_run)
-            surf.blit(self.big.render(f"SCORE: {self.last_final}", True, FG), (hud_x, hud_y + 70))
-        else:
-            # no hint text in Assemble panel (requested)
-            pass
 
 # ---------- scoring helpers ----------
 def lcs_len(a, b):
@@ -473,7 +598,7 @@ def compute_final(build, run, tbonus, attempts=0, hints=0, err_runs=0, extra_dis
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Pygame x LeetCode — Blocks")
+    pygame.display.set_caption("Pygame x LeetCode — Problems")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 24)
     big = pygame.font.SysFont(None, 36)
@@ -504,6 +629,8 @@ def main():
     ]
     slug_idx = 0
     mode = "blocks"
+    problem_scroll = 0
+    problem_max_scroll = 0
 
     def fetch_async(callable_, *args):
         nonlocal loading, last_error
@@ -522,13 +649,30 @@ def main():
                 elif e.key == pygame.K_p:
                     slug = sample_slugs[slug_idx % len(sample_slugs)]
                     slug_idx += 1
-                    last_action = f"Fetching /problem/{slug} …"
-                    fetch_async(api.problem_meta, slug)
+                    # If it's two-sum, use hardcoded meta for the demo; otherwise call the API.
+                    if slug == "two-sum":
+                        last_meta = hardcoded_meta("two-sum")
+                        last_error = None
+                        title = last_meta.get("title") or "(no title)"
+                        diff = last_meta.get("difficulty") or "?"
+                        last_action = f"Loaded ✓  {title} [{diff}]"
+                        current_slug = last_meta.get("slug") or current_slug
+                        # Update the left panel puzzle for this slug
+                        board.load_puzzle(SNIPPET_PUZZLES.get(current_slug) or SNIPPET_PUZZLES.get("two-sum"))
+                    else:
+                        last_action = f"Fetching /problem/{slug} …"
+                        fetch_async(api.problem_meta, slug)
                 elif e.key == pygame.K_b:
                     mode = "blocks"
                     if not board.palette:
                         board.load_puzzle(SNIPPET_PUZZLES.get(current_slug) or SNIPPET_PUZZLES.get("two-sum"))
                     last_action = "Snippet mode"
+
+            if e.type == pygame.MOUSEWHEEL:
+                mx, my = pygame.mouse.get_pos()
+                if right_rect.collidepoint((mx, my)):
+                    # scroll speed: 40 px per wheel step
+                    problem_scroll = max(0, min(problem_max_scroll, problem_scroll - e.y * 40))
 
             # shared run callback (returns res dict)
             def _on_run(code_text: str):
@@ -550,6 +694,8 @@ def main():
 
         # fetch results from LCClient
         try:
+            # If we just used hardcoded two-sum, there may be nothing in the queue right now.
+            # Fall through safely if queue is empty.
             status, payload_or_err = q.get_nowait()
             loading = False
             if status == "ok":
@@ -573,7 +719,7 @@ def main():
         screen.blit(big.render("Pygame + LeetCode API", True, FG), (PADDING, 20))
         mode_label = f"Mode: {mode == 'blocks'}"
         screen.blit(
-            font.render("Controls: [P] Next • [B] Blocks • Ctrl/Cmd+Enter Run • [Esc] Quit", True, MUTED),
+            font.render("Controls: [P] Next • [Esc] Quit", True, MUTED),
             (PADDING, 48),
         )
         top_status = f"{mode_label}   •   Status: {last_action}" + (
@@ -584,6 +730,11 @@ def main():
             (PADDING, 72),
         )
         board.draw(screen)
+        content_h = draw_problem_panel(screen, right_rect, big, font, mono, last_meta, scroll_y=problem_scroll)
+        viewport_h = right_rect.h - 20
+        problem_max_scroll = max(0, content_h - viewport_h)
+        # Re-clamp in case content changed this frame
+        problem_scroll = max(0, min(problem_max_scroll, problem_scroll))
         pygame.display.flip()
         clock.tick(60)
 
