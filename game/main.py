@@ -7,10 +7,8 @@ import random
 # ---------- optional integrations you already have ----------
 try:
     from .api import LCClient
-    from .editor import Editor
 except ImportError:
     from api import LCClient
-    from editor import Editor
 
 # ------- layout / colors -------
 WIDTH, HEIGHT = 900, 600
@@ -49,41 +47,6 @@ def draw_wrapped(surface, text, font, color, x, y, max_w, line_h=None):
         y += lh
     return y
 
-# ---------- starter templates for Editor mode ----------
-STARTERS = {
-    "two-sum": """from typing import List
-
-def twoSum(nums: List[int], target: int):
-    # Your code here
-    seen = {}
-    for i, x in enumerate(nums):
-        need = target - x
-        if need in seen:
-            return [seen[need], i]
-        seen[x] = i
-    return []
-""",
-    "add-two-numbers": """# Adjust signature to your judge
-class ListNode:
-    def __init__(self, val=0, next=None):
-        self.val = val
-        self.next = next
-def addTwoNumbers(l1, l2):
-    carry = 0
-    dummy = ListNode()
-    tail = dummy
-    while l1 or l2 or carry:
-        v = (l1.val if l1 else 0) + (l2.val if l2 else 0) + carry
-        carry, d = divmod(v, 10)
-        tail.next = ListNode(d); tail = tail.next
-        l1 = l1.next if l1 else None
-        l2 = l2.next if l2 else None
-    return dummy.next
-""",
-}
-def starter_for(slug: str) -> str:
-    return STARTERS.get(slug, "# Write your solution here\n")
-
 # ---------- snippet puzzles for Blocks mode ----------
 SNIPPET_PUZZLES = {
     "two-sum": {
@@ -100,7 +63,7 @@ SNIPPET_PUZZLES = {
             "    return []",
         ],
         "distractors": [
-            "    nums.sort()  # red herring",
+            "    nums.sort()",
         ],
     },
     # add more slugs here if you want blocks for them
@@ -384,7 +347,7 @@ def compute_final(build, run, tbonus, attempts=0, hints=0, err_runs=0, extra_dis
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Pygame x LeetCode — Editor & Blocks")
+    pygame.display.set_caption("Pygame x LeetCode — Blocks")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 24)
     big = pygame.font.SysFont(None, 36)
@@ -392,19 +355,17 @@ def main():
 
     # layout
     right_rect = pygame.Rect(LEFT_W + PADDING, 70, WIDTH - LEFT_W - PADDING * 2, HEIGHT - 86)
-    left_panel_rect = pygame.Rect(PADDING, 70, LEFT_W - PADDING * 2, HEIGHT - 86)
+    left_panel_rect = pygame.Rect(PADDING, 35, LEFT_W - PADDING * 2, HEIGHT - 86)
 
-    editor = Editor(right_rect, font, mono, title="Editor")
     board = SnippetBoard(left_panel_rect, right_rect, font, big, mono)
 
     # default slug so Blocks mode isn't empty at boot
     current_slug = "two-sum"
-    editor.set_text(starter_for(current_slug))
     board.load_puzzle(SNIPPET_PUZZLES.get(current_slug))
 
     last_verdict = ""
     loading = False
-    last_action = "Controls: [P] Next • [B] Blocks • [E] Editor • Esc Quit"
+    last_action = "Snippet mode"
     last_meta = None
     last_error = None
 
@@ -416,7 +377,7 @@ def main():
         "longest-substring-without-repeating-characters",
     ]
     slug_idx = 0
-    mode = "editor"  # or "blocks"
+    mode = "blocks"  # start in Blocks
 
     def fetch_async(callable_, *args):
         nonlocal loading, last_error
@@ -442,9 +403,6 @@ def main():
                     if not board.palette:
                         board.load_puzzle(SNIPPET_PUZZLES.get(current_slug) or SNIPPET_PUZZLES.get("two-sum"))
                     last_action = "Snippet mode"
-                elif e.key == pygame.K_e:
-                    mode = "editor"
-                    last_action = "Editor mode"
 
             # shared run callback (returns res dict)
             def _on_run(code_text: str):
@@ -462,10 +420,7 @@ def main():
                     return None
 
             # forward input
-            if mode == "editor":
-                editor.handle_event(e, on_run=_on_run)
-            else:
-                board.handle_event(e, on_run=_on_run)
+            board.handle_event(e, on_run=_on_run)
 
         # fetch results from LCClient
         try:
@@ -478,10 +433,7 @@ def main():
                 diff = last_meta.get("difficulty") or "?"
                 last_action = f"Loaded ✓  {title} [{diff}]"
                 current_slug = last_meta.get("slug") or current_slug
-                editor.set_title(f"Editor — {title}")
-                editor.set_text(starter_for(current_slug or ""))
-
-                # load a blocks puzzle for this slug (if exists)
+                # Update blocks puzzle for this slug (fallback to two-sum)
                 board.load_puzzle(SNIPPET_PUZZLES.get(current_slug) or SNIPPET_PUZZLES.get("two-sum"))
             else:
                 last_error = payload_or_err
@@ -493,9 +445,9 @@ def main():
         # ---- draw ----
         screen.fill(BG)
         screen.blit(big.render("Pygame + LeetCode API", True, FG), (PADDING, 20))
-        mode_label = f"Mode: {'Blocks' if mode == 'blocks' else 'Editor'}"
+        mode_label = f"Mode: {mode == 'blocks'}"
         screen.blit(
-            font.render("Controls: [P] Next • [B] Blocks • [E] Editor • Ctrl/Cmd+Enter Run • [Esc] Quit", True, MUTED),
+            font.render("Controls: [P] Next • [B] Blocks • Ctrl/Cmd+Enter Run • [Esc] Quit", True, MUTED),
             (PADDING, 48),
         )
         top_status = f"{mode_label}   •   Status: {last_action}" + (
@@ -505,36 +457,7 @@ def main():
             font.render(top_status, True, ACCENT if ("Loaded" in last_action or "✅" in last_verdict) else FG),
             (PADDING, 72),
         )
-
-        if mode == "editor":
-            # left metadata panel
-            y = 120
-            x0 = PADDING
-            max_w = LEFT_W - PADDING * 2
-            if loading:
-                screen.blit(font.render("Loading…", True, FG), (x0, y))
-                y += 30
-            if last_error:
-                y = draw_wrapped(screen, str(last_error), font, ERR, x0, y, max_w)
-            if last_meta:
-                title = last_meta.get("title") or ""
-                diff = last_meta.get("difficulty") or ""
-                tags = ", ".join(last_meta.get("tags", [])) or "-"
-                url = last_meta.get("url") or ""
-                screen.blit(big.render(title, True, FG), (x0, y)); y += 40
-                y = draw_wrapped(screen, f"Difficulty: {diff}", font, MUTED, x0, y, max_w)
-                y = draw_wrapped(screen, f"Tags: {tags}", font, MUTED, x0, y, max_w)
-                y = draw_wrapped(screen, f"URL: {url}", font, MUTED, x0, y, max_w)
-                y += 10
-                text = (last_meta.get("text") or "")[:2000]
-                if text:
-                    y = draw_wrapped(screen, text, mono, FG, x0, y, max_w, line_h=mono.get_height() + 2)
-            # right: code editor
-            editor.draw(screen)
-        else:
-            # Blocks mode draws both panels internally
-            board.draw(screen)
-
+        board.draw(screen)
         pygame.display.flip()
         clock.tick(60)
 
