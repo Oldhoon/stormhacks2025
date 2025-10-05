@@ -31,6 +31,10 @@ class Samurai:
         spritesheet_hurt = spritesheet.SpriteSheet(self.hurt_sheet)
         spritesheet_idle = spritesheet.SpriteSheet(self.idle_sheet)
         spritesheet_run = spritesheet.SpriteSheet(self.run_sheet)
+        
+        self.attack_sound = pg.mixer.Sound('assets/Sounds/attack_knight.wav')
+        self.hit_sound = pg.mixer.Sound('assets/Sounds/hurt_knight.wav')
+        self.death_sound = pg.mixer.Sound('assets/Sounds/die_knight.wav')
 
         self.attack_list = []
         self.hurt_list = []
@@ -101,6 +105,7 @@ class Samurai:
                 self.hp = 0
                 self.is_alive = False # Samurai is defeated
             self.set_animation("hurt")
+            self.hit_sound.play()
             
     def draw(self, screen):
         """Draw samurai on screen"""
@@ -139,6 +144,7 @@ class Samurai:
 
     def attack(self):
         self.set_animation("attack")
+        self.attack_sound.play()
 
     def apply_input(self, inp):
         if inp.attack and not self.is_attacking:
