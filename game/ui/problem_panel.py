@@ -3,14 +3,13 @@ from .utils import measure_wrapped
 from ..config import FG, MUTED, ACCENT
 
 def split_problem_text(text: str):
-    """Very light parser to separate desc/examples/constraints from plain text."""
     if not text:
         return {"desc": "", "examples": "", "constraints": ""}
 
     t = text.replace("\r", "")
     low = t.lower()
     cons_i = low.find("constraints:")
-    ex_i = low.find("example")  # first "Example"
+    ex_i = low.find("example") 
 
     desc = t
     examples = ""
@@ -31,10 +30,10 @@ class ProblemPanel:
     """Scrollable problem view rendered inside a rect."""
     def __init__(self, rect: pygame.Rect, fonts):
         self.rect = rect
-        self.big, self.font, self.mono = fonts  # (big, regular, mono)
+        self.big, self.font, self.mono = fonts 
         self.meta = None
         self.scroll_y = 0
-        self._content_h = 0  # computed each frame
+        self._content_h = 0 
 
     def set_meta(self, meta: dict | None):
         self.meta = meta

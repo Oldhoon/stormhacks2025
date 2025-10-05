@@ -1,5 +1,8 @@
+# game/ui/snippet_board.py
 import pygame
+import random
 from ..config import FG, ACCENT, ERR
+
 
 class _Block:
     def __init__(self, text, uid):
@@ -9,7 +12,7 @@ class _Block:
         self.is_dragging = False
 
     def _wrap_text(self, font, text, max_w):
-        words = text.split(' ')
+        words = text.split(" ")
         lines, cur = [], ""
         for w in words:
             test = (cur + " " + w).strip()
@@ -59,6 +62,7 @@ class _Block:
 
 class SnippetBoard:
     """Left panel that shows a palette of code lines and SUBMIT/RESET buttons (vertical reordering)."""
+
     def __init__(self, rect: pygame.Rect, fonts):
         self.left_rect = rect
         self.font, self.big, self.mono = fonts  # (regular, big, mono)
@@ -68,7 +72,7 @@ class SnippetBoard:
 
         # Buttons (bottom-left)
         self.submit_rect = pygame.Rect(self.left_rect.x + 12, self.left_rect.bottom - 44, 120, 34)
-        self.reset_rect  = pygame.Rect(self.submit_rect.right + 12, self.submit_rect.y, 120, 34)
+        self.reset_rect = pygame.Rect(self.submit_rect.right + 12, self.submit_rect.y, 120, 34)
 
         # scrolling
         self.scroll_y = 0
@@ -86,13 +90,26 @@ class SnippetBoard:
         self._insert_slot: int | None = None  # 0..len(others)
         self._slot_line_y: int | None = None
         self._last_slot: int | None = None
-        self._slot_hysteresis_px = 8  # move this far past a boundary before switching slots
+        self._slot_hysteresis_px = 8  # px to move past a boundary before switching slots
 
     # ---------------- layout helpers ----------------
 
-    def set_lines(self, lines: list[str]):
-        self.palette = [_Block(t, f"b{i}") for i, t in enumerate(lines, 1)]
+    def set_lines(self, lines: list[str], scramble: bool = False, seed: int | None = None):
+        """Load blocks; optionally scramble right away (use seed for deterministic per-question order)."""
+        blocks = [_Block(t, f"b{i}") for i, t in enumerate(lines, 1)]
+        if scramble:
+            rnd = random.Random(seed)
+            rnd.shuffle(blocks)
+        self.palette = blocks
         self.scroll_y = 0
+        # clear any drag state
+        self._drag_block = None
+        self._drag_cursor_y = 0
+        self._drag_offset_y = 0
+        self._smooth_top = None
+        self._insert_slot = None
+        self._slot_line_y = None
+        self._last_slot = None
 
     def _layout(self):
         """Compute per-block layout (screen coords), honoring scroll."""
@@ -103,7 +120,7 @@ class SnippetBoard:
         content_h = 0
         for b in self.palette:
             h, lines = b.measure_height(self.mono, inner_w, pad=8, line_gap=2)
-            rows.append({'block': b, 'top': y_left, 'height': h, 'lines': lines, 'x': inner_x, 'w': inner_w})
+            rows.append({"block": b, "top": y_left, "height": h, "lines": lines, "x": inner_x, "w": inner_w})
             y_left += h + 6
             content_h += h + 6
         if rows:
@@ -116,23 +133,22 @@ class SnippetBoard:
 
     def _compute_slots(self, rows, exclude_block: _Block | None):
         """Compute insertion slot Y positions based on all OTHER rows (screen coords)."""
-        others = [r for r in rows if r['block'] is not exclude_block]
+        others = [r for r in rows if r["block"] is not exclude_block]
         slots_y: list[int] = []
         if not others:
             # single slot: top of list area
             slots_y.append(self._list_top - self.scroll_y)
             return slots_y, others
-
         # before first
-        slots_y.append(others[0]['top'])
+        slots_y.append(others[0]["top"])
         # between each pair (midpoint between bottom of a and top of b)
         for a, b in zip(others, others[1:]):
-            a_bottom = a['top'] + a['height']
-            mid = (a_bottom + b['top']) // 2
+            a_bottom = a["top"] + a["height"]
+            mid = (a_bottom + b["top"]) // 2
             slots_y.append(mid)
         # after last
         last = others[-1]
-        slots_y.append(last['top'] + last['height'])
+        slots_y.append(last["top"] + last["height"])
         return slots_y, others
 
     # ---------------- event handling ----------------
@@ -141,7 +157,6 @@ class SnippetBoard:
         if e.type == pygame.MOUSEWHEEL:
             mx, my = pygame.mouse.get_pos()
             if self.left_rect.collidepoint((mx, my)) and self._max_scroll > 0:
-                # pygame wheel: e.y positive means scroll up; invert for typical UX
                 self.scroll_y = max(0, min(self._max_scroll, self.scroll_y - e.y * 40))
             return
 
@@ -159,13 +174,13 @@ class SnippetBoard:
 
             # start drag on a block
             for row in self._layout():
-                rect = pygame.Rect(row['x'], row['top'], row['w'], row['height'])
+                rect = pygame.Rect(row["x"], row["top"], row["w"], row["height"])
                 if rect.collidepoint(pos):
-                    b = row['block']
+                    b = row["block"]
                     self._drag_block = b
                     self._drag_cursor_y = pos[1]
-                    self._drag_offset_y = pos[1] - row['top']
-                    self._smooth_top = float(row['top'])  # seed smoother
+                    self._drag_offset_y = pos[1] - row["top"]
+                    self._smooth_top = float(row["top"])  # seed smoother
                     b.is_dragging = True
                     # prime insertion slot
                     self._insert_slot = None
@@ -182,9 +197,7 @@ class SnippetBoard:
             b = self._drag_block
             # finalize: remove b, insert at computed slot among others
             if self._insert_slot is not None:
-                # build "others" order from current palette
                 others = [x for x in self.palette if x is not b]
-                # mutate palette to others, then insert at slot
                 self.palette = others
                 slot = max(0, min(self._insert_slot, len(self.palette)))
                 self.palette.insert(slot, b)
@@ -206,7 +219,7 @@ class SnippetBoard:
         if not self._drag_block:
             return
 
-        # follow mouse every frame (more stable than relying on MOTION events only)
+        # follow mouse every frame
         self._drag_cursor_y = pygame.mouse.get_pos()[1]
         target_top = self._drag_cursor_y - self._drag_offset_y
         if self._smooth_top is None:
@@ -217,10 +230,9 @@ class SnippetBoard:
         rows = self._layout()
 
         # compute slots among OTHERS (exclude the dragged block)
-        slots_y, others = self._compute_slots(rows, exclude_block=self._drag_block)
+        slots_y, _others = self._compute_slots(rows, exclude_block=self._drag_block)
 
         # decide which slot the ghost's CENTER belongs to
-        # ghost height equals this block's measured height
         inner_w = self.left_rect.w - 24
         h, _ = self._drag_block.measure_height(self.mono, inner_w, pad=8, line_gap=2)
         ghost_center_y = int(self._smooth_top) + h // 2
@@ -245,6 +257,14 @@ class SnippetBoard:
         self._insert_slot = slot_idx            # 0..len(others)
         self._slot_line_y = int(boundary_y)     # screen Y for guide line
 
+        # optional: auto-scroll when dragging near edges
+        EDGE = 32
+        my = pygame.mouse.get_pos()[1]
+        if my < self._list_top + EDGE and self.scroll_y > 0:
+            self.scroll_y = max(0, self.scroll_y - 12)
+        elif my > self.submit_rect.y - EDGE and self.scroll_y < self._max_scroll:
+            self.scroll_y = min(self._max_scroll, self.scroll_y + 12)
+
     def draw(self, surf):
         # panel background & title
         pygame.draw.rect(surf, (28, 28, 36), self.left_rect, border_radius=12)
@@ -253,24 +273,26 @@ class SnippetBoard:
         rows = self._layout()
 
         # clip palette viewport
-        viewport = pygame.Rect(self.left_rect.x + 6, self._list_top - 4, self.left_rect.w - 12, self.submit_rect.y - self._list_top)
+        viewport = pygame.Rect(
+            self.left_rect.x + 6, self._list_top - 4, self.left_rect.w - 12, self.submit_rect.y - self._list_top
+        )
         surf.set_clip(viewport)
 
         # draw static blocks (not the one being dragged)
         for row in rows:
-            b = row['block']
+            b = row["block"]
             if b is self._drag_block:
                 continue
-            y_left = row['top']
-            inner_x = row['x']
-            inner_w = row['w']
+            y_left = row["top"]
+            inner_x = row["x"]
+            inner_w = row["w"]
             pad = 8
             line_gap = 2
-            b.rect = pygame.Rect(inner_x, y_left, inner_w, row['height'])
+            b.rect = pygame.Rect(inner_x, y_left, inner_w, row["height"])
             pygame.draw.rect(surf, (45, 45, 55), b.rect, border_radius=8)
             pygame.draw.rect(surf, (60, 60, 75), b.rect, 2, border_radius=8)
             ty = y_left + pad
-            for line in row['lines']:
+            for line in row["lines"]:
                 txt = self.mono.render(line, True, FG)
                 surf.blit(txt, (inner_x + pad, ty))
                 ty += self.mono.get_height() + line_gap
@@ -293,7 +315,7 @@ class SnippetBoard:
             h, lines = b.measure_height(self.mono, inner_w, pad=8, line_gap=2)
             y_top = int(self._smooth_top if self._smooth_top is not None else (self._drag_cursor_y - self._drag_offset_y))
             b.rect = pygame.Rect(inner_x, y_top, inner_w, h)
-            pygame.draw.rect(surf, (70, 70,  ninety := 90), b.rect, border_radius=8)  # slightly darker while dragging
+            pygame.draw.rect(surf, (70, 70, 90), b.rect, border_radius=8)  # slightly darker while dragging
             pygame.draw.rect(surf, ACCENT, b.rect, 2, border_radius=8)
             pad = 8
             ty = y_top + pad

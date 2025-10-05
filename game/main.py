@@ -9,7 +9,7 @@ except ImportError:
     from ui.snippet_board import SnippetBoard
 
 
-# Hardcoded "Two Sum" for demo
+# -------------------- Demo Problem Text --------------------
 TWO_SUM_TEXT = """Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.
 
 Example 1:
@@ -32,7 +32,6 @@ Constraints:
 Only one valid answer exists.
 Follow-up: Can you come up with an algorithm that is less than O(n^2) time complexity?"""
 
-
 def hardcoded_meta(slug: str):
     if slug == "two-sum":
         return {
@@ -46,6 +45,17 @@ def hardcoded_meta(slug: str):
         }
     return None
 
+# Snippets (we’ll shuffle these)
+SNIPPET_TWO_SUM = [
+    "def twoSum(nums, target):",
+    "    seen = {}",
+    "    for i, x in enumerate(nums):",
+    "        need = target - x",
+    "        if need in seen: return [seen[need], i]",
+    "        seen[x] = i",
+    "    return []",
+]
+
 
 def main():
     pygame.init()
@@ -53,6 +63,7 @@ def main():
     pygame.display.set_caption("Pygame — Problems")
     clock = pygame.time.Clock()
 
+    # fonts
     font = pygame.font.SysFont(None, 24)
     big  = pygame.font.SysFont(None, 36)
     mono = pygame.font.SysFont("consolas", 18)
@@ -65,22 +76,19 @@ def main():
     problem = ProblemPanel(left_rect, fonts=(big, font, mono))
     board   = SnippetBoard(right_rect, fonts=(font, big, mono))
 
-    board.set_lines([
-        "def twoSum(nums, target):",
-        "    seen = {}",
-        "    for i, x in enumerate(nums):",
-        "        need = target - x",
-        "        if need in seen: return [seen[need], i]",
-        "        seen[x] = i",
-        "    return []",
-    ])
-
-    # state
-    last_action = "Press [P] to load Two Sum • [Esc] quit"
+    # ---------- AUTO-LOAD the question on startup (scrambled) ----------
+    meta = hardcoded_meta("two-sum")
+    if meta:
+        problem.set_meta(meta)
+        # deterministic order per question id; use seed=None for new random each run
+        board.set_lines(SNIPPET_TWO_SUM, scramble=True, seed=int(meta["id"]))
+        last_action = f"Loaded ✓ {meta['title']} [{meta['difficulty']}] — snippets shuffled"
+    else:
+        last_action = "Press [P] to load Two Sum • [Esc] quit"
 
     running = True
     while running:
-        dt = clock.tick(120) / 1000.0  # higher cap + per-frame dt
+        dt = clock.tick(120) / 1000.0
 
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
@@ -92,22 +100,16 @@ def main():
                     meta = hardcoded_meta("two-sum")
                     if meta:
                         problem.set_meta(meta)
-                        last_action = f"Loaded ✓ {meta['title']} [{meta['difficulty']}]"
+                        # re-shuffle on demand; seed=None -> different order each time you press P
+                        board.set_lines(SNIPPET_TWO_SUM, scramble=True, seed=None)
+                        last_action = f"Reloaded ✓ {meta['title']} — snippets re-shuffled"
 
             # delegate events
             problem.handle_event(e)
             board.handle_event(
                 e,
                 on_submit=lambda code: print("SUBMIT clicked. Code (first 300 chars):\n", code[:300]),
-                on_reset=lambda: board.set_lines([
-                    "def twoSum(nums, target):",
-                    "    seen = {}",
-                    "    for i, x in enumerate(nums):",
-                    "        need = target - x",
-                    "        if need in seen: return [seen[need], i]",
-                    "        seen[x] = i",
-                    "    return []",
-                ]),
+                on_reset=lambda: board.set_lines(SNIPPET_TWO_SUM, scramble=True, seed=None),
             )
 
         # per-frame updates (smooth dragging)
@@ -124,7 +126,6 @@ def main():
         pygame.display.flip()
 
     pygame.quit()
-
 
 if __name__ == "__main__":
     main()
