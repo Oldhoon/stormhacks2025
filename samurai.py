@@ -60,7 +60,7 @@ class Samurai:
         self.position = (START_X,START_Y)
         self.last_update = pg.time.get_ticks()
         self.image = self.idle_list[0]
-        self.rect = self.image.get_rect(topleft=self.position)
+        self.rect = self.image.get_rect(center=self.position)
 
     def update(self):
         """Update samurai state"""
@@ -72,7 +72,7 @@ class Samurai:
             frames = self.animations[self.animation_type]
             if frames:
                 self.frame_index = (self.frame_index + 1) % len(frames)
-        self.rect = self.position
+        self.rect.center = self.position
 
 
     def draw(self, screen):
@@ -108,3 +108,6 @@ class Samurai:
             self.move_right()
         if inp.attack:
             self.attack()
+
+    def get_rect(self):
+        return self.rect

@@ -58,6 +58,9 @@ class Arena:
         self.knight.update()
         self.samurai.update()
 
+    def check_collision(self):
+        if self.knight.get_rect().colliderect(self.samurai.get_rect()):
+            print("hello")
     
     def draw(self):
         self.screen.blit(self.background, (0, 0))
@@ -74,6 +77,7 @@ class Arena:
             self.update()
             self.draw()
             self.clock.tick(self.fps)
+            self.check_collision()
 
 
 Arena().run()
