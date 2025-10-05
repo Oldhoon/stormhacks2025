@@ -60,6 +60,7 @@ class Knight:
         self.image = frame
         self.rect = self.image.get_rect(midleft=self.position)
         self.can_move_left = True
+        self.can_move_right = True
         self.hp = MAX_HP
         self.dead_time = None
         self.speed = MOVE_BY // 2
@@ -124,6 +125,7 @@ class Knight:
                 else:
                     self.frame_index %= len(frames)
         self.rect.midleft = self.position
+        self.image = self.animations[self.animation_type][self.frame_index]
 
 
     def draw(self, screen):
@@ -162,20 +164,6 @@ class Knight:
 
     def dead(self):
         self.set_animation("dead")
-
-
-    def apply_input(self, inp):
-        if inp.attack and not self.is_attacking:
-            self.attack()
-            return
-        if self.is_attacking:
-            return
-        if inp.left:
-            self.move_left()
-        if inp.right:
-            self.move_right()
-        else:
-            self.idle()
 
     def get_rect(self):
         return self.rect
