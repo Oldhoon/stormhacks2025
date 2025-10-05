@@ -12,6 +12,7 @@ class PlayerInput:
     right:bool = False
     attack:bool = False
 
+
 class Arena:
     def __init__(self):
         pygame.init()
@@ -32,6 +33,7 @@ class Arena:
         self.knight = Knight()
         
         self.running = True
+        self.collide = False
     
     def handle_events(self):
         for event in pygame.event.get():
@@ -60,7 +62,11 @@ class Arena:
 
     def check_collision(self):
         if self.knight.get_rect().colliderect(self.samurai.get_rect()):
-            print("hello")
+            self.collide = True
+
+        else:
+            self.collide = False
+
     
     def draw(self):
         self.screen.blit(self.background, (0, 0))

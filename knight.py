@@ -54,7 +54,7 @@ class Knight:
         #required sprite fields
         frame = self.animations[self.animation_type][self.frame_index]
         self.image = frame
-        self.rect = self.image.get_rect(center=self.position)
+        self.rect = self.image.get_rect(midleft=self.position)
 
 
 
@@ -67,7 +67,7 @@ class Knight:
                 self.frame_index = (self.frame_index + 1) % len(frames)
                 frame = frames[self.frame_index]
                 self.image = frame
-        self.rect.center = self.position
+        self.rect.midleft = self.position
 
 
     def draw(self, screen):

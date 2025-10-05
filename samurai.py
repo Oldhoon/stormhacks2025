@@ -91,6 +91,7 @@ class Samurai:
         self.set_animation("idle")
 
     def move_right(self):
+
         self.set_animation("run")
         self.position = (self.position[0] + MOVE_BY, self.position[1])
 
