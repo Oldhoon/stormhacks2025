@@ -1,19 +1,12 @@
-gameplay logic 
+# Gameplay Loop:
+Defeat the evil knight, and solve a leetcode problem by dragging and dropping the code blocks into the correct position! Time is of the essence
 
-sprite has hitbox 
-spacebar to attack 
-if arm of sprite 1 hits sprite 2 hitbox, sprite2 loses hp
-
-gameover if sprite2 hp zero 
-
-
-samurai sprite size 
-idle - 96 x 84 
-hurt - 96 x 84 
+# Goal
+Get speedier at Leetcode problems, and get practice in a roguelike experience.
 
 # Art Credits:
 
-Samurai: https://xzany.itch.io/samurai-2d-pixel-art
-Knight: https://xzany.itch.io/free-knight-2d-pixel-art
-Background: https://ansimuz.itch.io/cyberpunk-street-environment
-Health bar: https://bdragon1727.itch.io/basic-pixel-health-bar-and-scroll-bar
+- Samurai: https://xzany.itch.io/samurai-2d-pixel-art
+- Knight: https://xzany.itch.io/free-knight-2d-pixel-art
+- Background: https://ansimuz.itch.io/cyberpunk-street-environment
+- Health bar: https://bdragon1727.itch.io/basic-pixel-health-bar-and-scroll-bar
