@@ -25,6 +25,12 @@ class PlayerInput:
 class Arena:
     def __init__(self):
         pygame.init()
+        pygame.mixer.init()
+
+
+        pygame.mixer.music.load(r'assets/Music/Pixel Music Pack/mp3/Pixel 5.mp3')
+        pygame.mixer.music.play(-1)  # -1 makes it loop forever
+        pygame.mixer.music.set_volume(0.25) 
 
         self.screen_width = 1280
         self.screen_height = 720
@@ -120,6 +126,7 @@ class Arena:
             self.game_over_reason = "timeout"
             self.state = "defeat"
             self._set_info("Time expired. Samurai defeated.", 3500)
+            self.samurai.death_sound.play()
 
     def get_remaining_time(self):
         if self.start_time is None:

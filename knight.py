@@ -33,6 +33,10 @@ class Knight:
         health_sheet_full = pygame.image.load(r"assets/health.png").convert_alpha()
         y_start = 16 + (HEALTH_STYLE * 16)  # Skip first row (hearts), start at row 1
         self.health_sheet = health_sheet_full.subsurface((0, y_start, 256, 16)).copy()
+        
+        self.attack_sound = pygame.mixer.Sound('assets/Sounds/axe_boss.wav')
+        self.hit_sound = pygame.mixer.Sound('assets/Sounds/hurt_monster.wav')
+        self.death_sound = pygame.mixer.Sound('assets/Sounds/die_boss.wav')
 
         self.attack1_sheet = pygame.transform.flip(self.attack1_sheet, True, False)
         self.death_sheet = pygame.transform.flip(self.death_sheet, True, False)
@@ -233,7 +237,7 @@ class Knight:
     def take_damage(self):
         if self.can_take_damage:
             self.hp -= DAMAGE_AMOUNT
-            
+            self.hit_sound.play()
             self.position = (self.position[0] + KNOCKBACK, self.position[1])  # Knockback effect
             if self.hp <= 0:
                 self.hp = 0
@@ -242,6 +246,7 @@ class Knight:
                 self.attack_hit_applied = True
                 self.set_animation("dead")
                 self.dead_time = pygame.time.get_ticks()
+                self.death_sound.play()
             else:
                 self.is_attacking = False
                 self.set_animation("hurt")
@@ -268,6 +273,7 @@ class Knight:
 
     def attack(self):
         self.set_animation("attack")
+        self.attack_sound.play()
 
     def dead(self):
         self.set_animation("dead")
