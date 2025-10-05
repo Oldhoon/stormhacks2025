@@ -80,29 +80,29 @@ class Knight:
         self.alive = True
         self.idle()
         
-    def ai_update(self, samurai):
-        if not self.alive:
-            if self.dead_time and pygame.time.get_ticks() - self.dead_time > 15000:
-                self.revive()
-            return
+    # def ai_update(self, samurai):
+    #     if not self.alive:
+    #         if self.dead_time and pygame.time.get_ticks() - self.dead_time > 15000:
+    #             self.revive()
+    #         return
         
-        samurai_x, samurai_y = samurai.position
-        knight_x, knight_y = self.position
+    #     samurai_x, samurai_y = samurai.position
+    #     knight_x, knight_y = self.position
         
-        dist_x = samurai_x - knight_x
+    #     dist_x = samurai_x - knight_x
         
-        if abs(dist_x) > 100:
-            if dist_x > 0:
-                self.position = (knight_x + self.speed, knight_y)
-            else:
-                self.position = (knight_x - self.speed, knight_y)
-            self.set_animation("walk")
-        else:
-            self.attack()
+    #     if abs(dist_x) > 100:
+    #         if dist_x > 0:
+    #             self.position = (knight_x + self.speed, knight_y)
+    #         else:
+    #             self.position = (knight_x - self.speed, knight_y)
+    #         self.set_animation("walk")
+    #     else:
+    #         self.attack()
             
         
     def is_alive(self):
-        return self.alive        self.can_move_right = True
+        return self.alive
 
 
 
