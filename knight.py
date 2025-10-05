@@ -38,14 +38,16 @@ class Knight:
             for i in range(count):
                 frames.append(ss.get_image(i, FW, FH, SCALE, COLOR))
             return frames
+    
+        
 
         self.animations = {
             "attack": slice_all(ss_attack, self.attack1_sheet),
             "dead": slice_all(ss_death, self.death_sheet),
             "idle":slice_all(ss_idle, self.idle_sheet),
             "walk":slice_all(ss_walk, self.walk_sheet)
-
         }
+        self.animations["walk"].reverse()
 
         # Current animation state
         self.animation_type = "idle"

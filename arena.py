@@ -35,22 +35,31 @@ class Arena:
         self.running = True
     
     def handle_events(self):
+        
+        p1_attack_once = False
+        p2_attack_once = False
+        
         for event in pygame.event.get():
             if event.type == QUIT:
                 self.running = False
                 pygame.quit()
                 sys.exit()
+            if event.type == KEYDOWN:
+                if event.key == K_SPACE:
+                    p1_attack_once = True
+                if event.key == K_w:
+                    p2_attack_once = True
 
         keys = pygame.key.get_pressed()
         p1 = PlayerInput(
             left=keys[pygame.K_LEFT],
             right=keys[pygame.K_RIGHT],
-            attack=keys[pygame.K_SPACE]
+            attack=p1_attack_once
         )
         p2 = PlayerInput(
             left=keys[pygame.K_a],
             right=keys[pygame.K_d],
-            attack=keys[pygame.K_w]
+            attack=p2_attack_once
         )
         self.samurai.apply_input(p1)
         self.knight.apply_input(p2)

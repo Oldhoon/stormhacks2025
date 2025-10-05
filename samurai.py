@@ -63,18 +63,28 @@ class Samurai:
         self.rect = self.image.get_rect(center=self.position)
         self.can_move_right = True
         self.can_move_left = True
+        self.is_attacking = False
 
     def update(self):
         """Update samurai state"""
         now = pg.time.get_ticks()
         if not hasattr(self, "last_update"):
             self.last_update = now
+            
         if now - self.last_update >= animation_cooldown:
             self.last_update = now
             frames = self.animations[self.animation_type]
             if frames:
-                self.frame_index = (self.frame_index + 1) % len(frames)
+                self.frame_index += 1
+                if self.animation_type == "attack":
+                    if self.frame_index >= len(frames):
+                        self.is_attacking = False
+                        self.frame_index = 0
+                        self.idle() # go back to idle after attack
+                else:
+                    self.frame_index %= len(frames)
         self.rect.center = self.position
+
 
 
     def draw(self, screen):
@@ -83,6 +93,10 @@ class Samurai:
         screen.blit(animation_list[self.frame_index], self.position)
 
     def set_animation(self, animation_type):
+        if animation_type == "attack":
+            if self.is_attacking:
+                return
+            self.is_attacking = True
         """Change animation type"""
         if animation_type in self.animations and animation_type != self.animation_type:
             self.animation_type = animation_type
@@ -106,12 +120,18 @@ class Samurai:
         self.set_animation("attack")
 
     def apply_input(self, inp):
+        if inp.attack and not self.is_attacking:
+            self.attack()
+            return
+        if self.is_attacking:
+            return
         if inp.left:
             self.move_left()
-        if inp.right:
+        elif inp.right:
             self.move_right()
-        if inp.attack:
-            self.attack()
+        else:
+            self.idle()
+        
 
     def get_rect(self):
         return self.rect
