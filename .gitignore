@@ -48,4 +48,6 @@ assets/**/.DS_Store
 
 # Temporary files
 *.tmp
-*.bak
+*.bak.venv/
+
+
